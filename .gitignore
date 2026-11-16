@@ -1,0 +1,9 @@
+node_modules/
+.next/
+dist/
+coverage/
+.env
+.env.local
+premium-audit.json
+playwright-report/
+test-results/

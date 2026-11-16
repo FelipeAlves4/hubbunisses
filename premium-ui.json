@@ -1,0 +1,10 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["apps", "packages"],
+  "locale": "pt-BR",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Form", "Select/Listbox", "Toast", "Scrollbar", "CRUD"],
+  "ownership": { "Form": "native", "Select/Listbox": "native", "Toast": "authored", "Scrollbar": "authored", "CRUD": "authored" },
+  "requiredCommands": ["typecheck", "test", "build"],
+  "commands": { "typecheck": "pnpm typecheck", "test": "pnpm test", "build": "pnpm build" }
+}

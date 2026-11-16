@@ -1,0 +1,13 @@
+{
+  "name": "@asex/pricing",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": { "typescript": "^7.0.2", "vitest": "^5.1.0" }
+}
