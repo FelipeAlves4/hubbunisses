@@ -52,11 +52,15 @@ import { buildPricingReportData } from "../lib/report-data";
 import {
   simulationRepository,
   SimulationStorageError,
+  type SimulationRepository,
   type PricingSimulation,
   type SavedScenario,
   type SimulationInput,
   type SimulationKind,
 } from "../lib/simulation-repository";
+import { SupabaseSimulationRepository } from "../lib/supabase-simulation-repository";
+import { createClient } from "../lib/supabase/browser";
+import { isSupabaseConfigured, portalUrl } from "../lib/supabase/config";
 
 type View = "calculator" | "history" | "reports";
 type ProductForm = Record<keyof ProductPricingInput, string>;
@@ -558,6 +562,11 @@ function ScenarioSimulator({
 }
 
 export default function PrecificaPage() {
+  const [repository, setRepository] =
+    useState<SimulationRepository>(simulationRepository);
+  const [storageMode, setStorageMode] = useState<"local" | "cloud">("local");
+  const [localImportCount, setLocalImportCount] = useState<number | null>(null);
+  const [confirmLocalImport, setConfirmLocalImport] = useState(false);
   const [view, setView] = useState<View>("calculator");
   const [kind, setKind] = useState<SimulationKind>("product");
   const [product, setProduct] = useState(initialProduct);
@@ -601,7 +610,7 @@ export default function PrecificaPage() {
   }, [result, activeMargin, scenarios]);
   const refresh = async () => {
     try {
-      setSimulations(await simulationRepository.list());
+      setSimulations(await repository.list());
       setHistoryError("");
     } catch (cause) {
       setHistoryError(
@@ -611,6 +620,44 @@ export default function PrecificaPage() {
       );
     }
   };
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    let active = true;
+    const connect = async () => {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getClaims();
+      const userId = data?.claims?.sub;
+      if (!userId) {
+        window.location.assign(
+          `${portalUrl}/login?next=${encodeURIComponent(window.location.href)}`,
+        );
+        return;
+      }
+      const { data: membership, error: membershipError } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      if (membershipError || !membership) {
+        window.location.assign(`${portalUrl}/onboarding`);
+        return;
+      }
+      if (active) {
+        setRepository(
+          new SupabaseSimulationRepository(
+            supabase,
+            membership.organization_id,
+          ),
+        );
+        setStorageMode("cloud");
+      }
+    };
+    void connect();
+    return () => {
+      active = false;
+    };
+  }, []);
   useEffect(() => {
     void refresh();
     companyProfileRepository
@@ -623,7 +670,14 @@ export default function PrecificaPage() {
             : "Não foi possível carregar dados de relatórios.",
         ),
       );
-  }, []);
+  }, [repository]);
+  useEffect(() => {
+    if (storageMode !== "cloud") return;
+    simulationRepository
+      .list()
+      .then((items) => setLocalImportCount(items.length))
+      .catch(() => setLocalImportCount(null));
+  }, [storageMode]);
   const switchView = (next: View) => {
     if (next !== "calculator" && dirty) {
       setPendingView(next);
@@ -701,15 +755,15 @@ export default function PrecificaPage() {
         scenarios: toScenarioSaved(scenarios),
       };
       const stored = editingId
-        ? await simulationRepository.update(editingId, payload)
-        : await simulationRepository.create(payload);
+        ? await repository.update(editingId, payload)
+        : await repository.create(payload);
       setEditingId(stored.id);
       setReferenceName(stored.name);
       setDirty(false);
       setStatus(
         editingId
-          ? "Alterações salvas neste navegador."
-          : "Simulação salva neste navegador.",
+          ? `Alterações salvas ${storageMode === "cloud" ? "na organização" : "neste navegador"}.`
+          : `Simulação salva ${storageMode === "cloud" ? "na organização" : "neste navegador"}.`,
       );
       await refresh();
     } catch (cause) {
@@ -744,7 +798,7 @@ export default function PrecificaPage() {
   };
   const duplicateSimulation = async (item: PricingSimulation) => {
     try {
-      const copy = await simulationRepository.duplicate(item.id);
+      const copy = await repository.duplicate(item.id);
       await refresh();
       setStatus("Cópia criada nas suas simulações.");
       openSimulation(copy);
@@ -759,13 +813,15 @@ export default function PrecificaPage() {
   const removeSimulation = async () => {
     if (!pendingDelete) return;
     try {
-      await simulationRepository.delete(pendingDelete.id);
+      await repository.delete(pendingDelete.id);
       if (editingId === pendingDelete.id) {
         setEditingId(null);
         setDirty(true);
       }
       setPendingDelete(null);
-      setStatus("Simulação excluída deste navegador.");
+      setStatus(
+        `Simulação excluída ${storageMode === "cloud" ? "da organização" : "deste navegador"}.`,
+      );
       await refresh();
     } catch (cause) {
       setHistoryError(
@@ -777,7 +833,7 @@ export default function PrecificaPage() {
   };
   const exportBackup = async () => {
     try {
-      const backup = await simulationRepository.exportBackup();
+      const backup = await repository.exportBackup();
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(backup, null, 2)], {
           type: "application/json",
@@ -802,14 +858,34 @@ export default function PrecificaPage() {
     event.target.value = "";
     if (!file) return;
     try {
-      const count = await simulationRepository.importBackup(await file.text());
+      const count = await repository.importBackup(await file.text());
       await refresh();
-      setStatus(`${count} simulação(ões) restaurada(s) neste navegador.`);
+      setStatus(
+        `${count} simulação(ões) ${storageMode === "cloud" ? "importada(s) para a organização" : "restaurada(s) neste navegador"}.`,
+      );
     } catch (cause) {
       setHistoryError(
         cause instanceof Error
           ? cause.message
           : "Não foi possível importar o backup.",
+      );
+    }
+  };
+  const importLocalHistory = async () => {
+    try {
+      const backup = await simulationRepository.exportBackup();
+      const count = await repository.importBackup(JSON.stringify(backup));
+      setConfirmLocalImport(false);
+      setLocalImportCount(0);
+      setStatus(
+        `${count} simulação(ões) importada(s). O histórico deste navegador foi preservado.`,
+      );
+      await refresh();
+    } catch (cause) {
+      setHistoryError(
+        cause instanceof Error
+          ? cause.message
+          : "Não foi possível importar o histórico local.",
       );
     }
   };
@@ -1089,15 +1165,20 @@ export default function PrecificaPage() {
               <>
                 <section className="save-panel" aria-label="Salvar e exportar">
                   <div>
-                    <span className="eyebrow">Registro local</span>
+                    <span className="eyebrow">
+                      {storageMode === "cloud"
+                        ? "Registro da organização"
+                        : "Registro local"}
+                    </span>
                     <h2>
                       {editingId
                         ? "Atualize esta simulação"
                         : "Salve para consultar depois"}
                     </h2>
                     <p>
-                      O cálculo é guardado apenas neste navegador e pode ser
-                      exportado em backup JSON.
+                      {storageMode === "cloud"
+                        ? "O cálculo é salvo na organização atual e pode ser exportado em backup JSON."
+                        : "O cálculo é guardado apenas neste navegador e pode ser exportado em backup JSON."}
                     </p>
                   </div>
                   <div className="save-actions">
@@ -1144,10 +1225,17 @@ export default function PrecificaPage() {
           <section className="history-view">
             <header className="view-header">
               <div>
-                <p className="product-label">Arquivo local</p>
+                <p className="product-label">
+                  {storageMode === "cloud"
+                    ? "Arquivo da organização"
+                    : "Arquivo local"}
+                </p>
                 <h1>Minhas simulações</h1>
                 <p>
-                  Abra, duplique ou revise os cálculos salvos neste navegador.
+                  Abra, duplique ou revise os cálculos salvos{" "}
+                  {storageMode === "cloud"
+                    ? "na organização atual."
+                    : "neste navegador."}
                 </p>
               </div>
               <Button onClick={newSimulation}>
@@ -1211,6 +1299,42 @@ export default function PrecificaPage() {
                 {historyError}
               </p>
             ) : null}
+            {storageMode === "cloud" && localImportCount ? (
+              <div className="delete-confirm local-import" role="status">
+                <span>
+                  Há {localImportCount} simulação(ões) neste navegador. Você
+                  pode copiá-las para a organização sem apagar os dados locais.
+                </span>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmLocalImport(true)}
+                  >
+                    Revisar importação
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {confirmLocalImport ? (
+              <div className="delete-confirm local-import" role="alert">
+                <span>
+                  Importar {localImportCount ?? 0} simulação(ões) para a
+                  organização atual? Registros já existentes não serão
+                  duplicados e o histórico local continuará intacto.
+                </span>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmLocalImport(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="button" onClick={importLocalHistory}>
+                    Importar agora
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {pendingDelete ? (
               <div className="delete-confirm" role="alert">
                 <span>
@@ -1243,7 +1367,7 @@ export default function PrecificaPage() {
                         <th>Tipo</th>
                         <th>Preço sugerido</th>
                         <th>Margem</th>
-                <th aria-sort="descending">Atualizada</th>
+                        <th aria-sort="descending">Atualizada</th>
                         <th>Ações</th>
                       </tr>
                     </thead>

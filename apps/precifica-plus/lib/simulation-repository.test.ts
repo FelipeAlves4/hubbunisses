@@ -67,6 +67,17 @@ describe("LocalSimulationRepository", () => {
     expect((await target.list())[0]?.name).toBe("Backup");
   });
 
+  it("preserves a valid supplied id for cloud migration de-duplication", async () => {
+    const repository = new LocalSimulationRepository();
+    const simulation = await repository.create({
+      id: "00000000-0000-4000-8000-000000000001",
+      name: "Importação estável",
+      kind: "product",
+      input: product,
+    });
+    expect(simulation.id).toBe("00000000-0000-4000-8000-000000000001");
+  });
+
   it("rejects incompatible backups without overwriting local records", async () => {
     const repository = new LocalSimulationRepository();
     await repository.create({

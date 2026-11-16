@@ -12,6 +12,8 @@
     "@asex/pricing": "workspace:*",
     "@asex/ui": "workspace:*",
     "@react-pdf/renderer": "4.9.0",
+    "@supabase/ssr": "0.8.0",
+    "@supabase/supabase-js": "2.99.1",
     "lucide-react": "^1.73.0",
     "next": "^16.4.6",
     "react": "^19.3.1",

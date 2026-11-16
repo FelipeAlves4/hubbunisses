@@ -25,7 +25,7 @@ export type PricingSimulation = {
 export type CreateSimulationInput = Omit<
   PricingSimulation,
   "id" | "createdAt" | "updatedAt" | "calculationVersion"
->;
+> & { id?: string };
 export type UpdateSimulationInput = Pick<
   PricingSimulation,
   "name" | "kind" | "input" | "scenarios"
@@ -50,7 +50,7 @@ export interface SimulationRepository {
 export class SimulationStorageError extends Error {}
 const STORAGE_KEY = "asex.precifica.simulations.v1";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function isNumber(value: unknown): value is number {
@@ -64,7 +64,7 @@ function isRate(value: unknown): value is number {
     value <= 1
   );
 }
-function isDate(value: unknown) {
+export function isDate(value: unknown) {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
 }
 function hasKeys(value: Record<string, unknown>, keys: string[]) {
@@ -74,7 +74,7 @@ function hasKeys(value: Record<string, unknown>, keys: string[]) {
   });
 }
 
-function isSimulationInput(
+export function isSimulationInput(
   kind: SimulationKind,
   input: unknown,
 ): input is SimulationInput {
@@ -199,7 +199,7 @@ export class LocalSimulationRepository implements SimulationRepository {
     const timestamp = new Date().toISOString();
     const item: PricingSimulation = {
       ...input,
-      id: id(),
+      id: input.id ?? id(),
       createdAt: timestamp,
       updatedAt: timestamp,
       calculationVersion: SIMULATION_MODEL_VERSION,
@@ -270,13 +270,7 @@ export class LocalSimulationRepository implements SimulationRepository {
         "O arquivo selecionado não é um JSON válido.",
       );
     }
-    if (
-      !isRecord(backup) ||
-      backup.schemaVersion !== SIMULATION_BACKUP_VERSION ||
-      !isDate(backup.exportedAt) ||
-      !Array.isArray(backup.simulations) ||
-      !backup.simulations.every(isPricingSimulation)
-    )
+    if (!isSimulationBackup(backup))
       throw new SimulationStorageError(
         "O backup não segue a estrutura ou versão esperada.",
       );
@@ -289,3 +283,13 @@ export class LocalSimulationRepository implements SimulationRepository {
 }
 
 export const simulationRepository = new LocalSimulationRepository();
+
+export function isSimulationBackup(value: unknown): value is SimulationBackup {
+  return (
+    isRecord(value) &&
+    value.schemaVersion === SIMULATION_BACKUP_VERSION &&
+    isDate(value.exportedAt) &&
+    Array.isArray(value.simulations) &&
+    value.simulations.every(isPricingSimulation)
+  );
+}
