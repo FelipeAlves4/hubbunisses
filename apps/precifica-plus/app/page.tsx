@@ -564,7 +564,12 @@ function ScenarioSimulator({
 export default function PrecificaPage() {
   const [repository, setRepository] =
     useState<SimulationRepository>(simulationRepository);
-  const [storageMode, setStorageMode] = useState<"local" | "cloud">("local");
+  const [storageMode, setStorageMode] = useState<
+    "checking" | "local" | "cloud"
+  >(() => (isSupabaseConfigured() ? "checking" : "local"));
+  const [historyLoading, setHistoryLoading] = useState(() =>
+    isSupabaseConfigured(),
+  );
   const [localImportCount, setLocalImportCount] = useState<number | null>(null);
   const [confirmLocalImport, setConfirmLocalImport] = useState(false);
   const [view, setView] = useState<View>("calculator");
@@ -609,6 +614,7 @@ export default function PrecificaPage() {
     }
   }, [result, activeMargin, scenarios]);
   const refresh = async () => {
+    setHistoryLoading(true);
     try {
       setSimulations(await repository.list());
       setHistoryError("");
@@ -618,6 +624,8 @@ export default function PrecificaPage() {
           ? cause.message
           : "Não foi possível carregar as simulações.",
       );
+    } finally {
+      setHistoryLoading(false);
     }
   };
   useEffect(() => {
@@ -659,6 +667,7 @@ export default function PrecificaPage() {
     };
   }, []);
   useEffect(() => {
+    if (storageMode === "checking") return;
     void refresh();
     companyProfileRepository
       .get()
@@ -670,7 +679,7 @@ export default function PrecificaPage() {
             : "Não foi possível carregar dados de relatórios.",
         ),
       );
-  }, [repository]);
+  }, [repository, storageMode]);
   useEffect(() => {
     if (storageMode !== "cloud") return;
     simulationRepository
@@ -981,8 +990,12 @@ export default function PrecificaPage() {
           </button>
         </nav>
         <p className="local-notice">
-          <ArchiveRestore size={15} /> Suas simulações estão salvas neste
-          navegador. Elas ainda não são sincronizadas entre dispositivos.
+          <ArchiveRestore size={15} />
+          {storageMode === "cloud"
+            ? " Suas simulações são sincronizadas com a organização atual."
+            : storageMode === "checking"
+              ? " Conectando à organização…"
+              : " Suas simulações estão salvas neste navegador. Elas ainda não são sincronizadas entre dispositivos."}
         </p>
       </aside>
       <section className="pricing-content">
@@ -1355,7 +1368,12 @@ export default function PrecificaPage() {
                 </div>
               </div>
             ) : null}
-            {simulations.length === 0 ? (
+            {historyLoading ? (
+              <div className="history-empty" role="status">
+                <ArchiveRestore size={22} />
+                <p>Sincronizando as simulações da organização…</p>
+              </div>
+            ) : simulations.length === 0 ? (
               <EmptyState onNew={newSimulation} />
             ) : (
               <>
