@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter @asex/portal dev",
     "dev:precifica": "pnpm --filter @asex/precifica-plus dev",
+    "dev:proposta": "pnpm --filter @asex/proposta-plus dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",

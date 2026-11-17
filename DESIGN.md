@@ -36,9 +36,13 @@ components:
 
 ASEX Business is a product-first workspace for Brazilian entrepreneurs. The portal is a dark, central launcher: a graphite field with a restrained wine-red horizon and three deliberate application surfaces. PRECIFICA+ remains a separate calculation workspace with its own violet identity.
 
+PROPOSTA+ is the commercial-document workspace: an operational navy rail and a true-white work surface designed for preparing a proposal beside its monetary total. Its signature is the document-like reading rhythm — restrained rules, clear table columns and one cobalt action — rather than decorative financial dashboards.
+
 ## Colors
 
 The hub canvas is graphite-black. Its only atmospheric gesture is a deep wine-red gradient confined to the lower page; violet identifies the active PRECIFICA+ card. Green indicates completed or positive states only. Do not add glow, glass effects, or fictitious financial signals.
+
+For PROPOSTA+, `--asex-navy` is the navigation and document-identity color, `--asex-blue` is the sole primary action and focus family, and true white is the working surface. Neutral gray separates data without making the editor look like a stack of cards. Status color is semantic only: blue for sent, green for approved, red for declined/cancelled and amber for expired.
 
 ## Typography
 
@@ -59,6 +63,8 @@ Controls are softly rounded; rows, dividers, and careful spacing carry most orga
 ## Components
 
 Buttons, fields, form errors, and feedback share the primitives in `packages/ui`. Native number inputs are intentionally used for the calculator because the browser's numeric semantics and keyboard are appropriate to this first-phase form.
+
+PROPOSTA+ reuses those native field semantics and defines its app-specific table/editor layout in `apps/proposta-plus/app/proposta.css`. Its runtime color path is `DESIGN.md colors.primary → --asex-blue → --proposal-blue → .primary`; the existing package stylesheet remains the canonical source for shared controls.
 
 ## Do's and Don'ts
 

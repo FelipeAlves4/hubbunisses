@@ -15,26 +15,34 @@ const applications = [
     name: "PRECIFICA+",
     description: "Calcule preços, analise custos e proteja suas margens.",
     icon: Calculator,
-    state: "available",
+    appKey: "precifica-plus",
+    urlKey: "precifica",
   },
   {
     name: "PROPOSTA+",
     description: "Crie orçamentos profissionais e valorize suas propostas.",
     icon: FileText,
-    state: "building",
+    appKey: "proposta-plus",
+    urlKey: "proposta",
   },
   {
     name: "NEXO Finance",
     description: "Organize suas finanças e acompanhe seus resultados.",
     icon: ChartNoAxesCombined,
-    state: "building",
+    appKey: null,
+    urlKey: null,
   },
 ] as const;
 
-type PortalIdentity = { organizationName?: string; initials?: string };
+type AppKey = "precifica-plus" | "proposta-plus";
+type PortalIdentity = {
+  organizationName?: string;
+  initials?: string;
+  enabledApps: Set<AppKey>;
+};
 
 async function getIdentity(): Promise<PortalIdentity> {
-  if (!isSupabaseConfigured()) return {};
+  if (!isSupabaseConfigured()) return { enabledApps: new Set() };
   const supabase = await createClient();
   const { data: claims } = await supabase.auth.getClaims();
   const userId = claims?.claims?.sub;
@@ -53,6 +61,20 @@ async function getIdentity(): Promise<PortalIdentity> {
       .maybeSingle(),
   ]);
   if (!membership) redirect("/onboarding");
+  const { data: entitlements } = await supabase
+    .from("app_entitlements")
+    .select("app_key, expires_at")
+    .eq("organization_id", membership.organization_id)
+    .eq("enabled", true);
+  const enabledApps = new Set(
+    (entitlements ?? [])
+      .filter(
+        (entitlement) =>
+          !entitlement.expires_at ||
+          new Date(entitlement.expires_at).getTime() > Date.now(),
+      )
+      .map((entitlement) => entitlement.app_key as AppKey),
+  );
   const organization = membership.organizations as { name?: string } | null;
   const name = profile?.full_name ?? "";
   return {
@@ -65,6 +87,7 @@ async function getIdentity(): Promise<PortalIdentity> {
         .map((part: string) => part[0])
         .join("")
         .toUpperCase() || "AB",
+    enabledApps,
   };
 }
 
@@ -130,6 +153,12 @@ export default async function PortalPage() {
           aria-label="Aplicativos ASEX Business Hub"
         >
           {applications.map((application) => {
+            const isEnabled =
+              application.appKey !== null &&
+              identity.enabledApps.has(application.appKey);
+            if (configured && application.appKey !== null && !isEnabled) {
+              return null;
+            }
             const Icon = application.icon;
             const content = (
               <>
@@ -140,7 +169,7 @@ export default async function PortalPage() {
                   <h2>{application.name}</h2>
                   <p>{application.description}</p>
                 </div>
-                {application.state === "available" ? (
+                {isEnabled ? (
                   <span className="card-action">
                     Abrir ferramenta <ArrowUpRight size={19} />
                   </span>
@@ -149,10 +178,10 @@ export default async function PortalPage() {
                 )}
               </>
             );
-            return application.state === "available" ? (
+            return isEnabled && application.urlKey ? (
               <a
                 className="application-card application-card-active"
-                href={urls.precifica}
+                href={urls[application.urlKey]}
                 key={application.name}
               >
                 {content}
