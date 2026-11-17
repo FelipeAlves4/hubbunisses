@@ -54,8 +54,10 @@ begin
   if (select count(*) from public.proposal_catalog_items) <> 0 then raise exception 'cross-tenant catalog exposed'; end if;
   if (select count(*) from public.proposals) <> 0 then raise exception 'cross-tenant proposals exposed'; end if;
   if (select count(*) from public.proposal_items) <> 0 then raise exception 'cross-tenant items exposed'; end if;
-  if exists (update public.proposals set title = 'TESTE forbidden' where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4' returning 1) then raise exception 'cross-tenant proposal update accepted'; end if;
-  if exists (update public.proposal_items set description = 'TESTE forbidden' where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5' returning 1) then raise exception 'cross-tenant item update accepted'; end if;
+  update public.proposals set title = 'TESTE forbidden' where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4';
+  if found then raise exception 'cross-tenant proposal update accepted'; end if;
+  update public.proposal_items set description = 'TESTE forbidden' where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5';
+  if found then raise exception 'cross-tenant item update accepted'; end if;
 end $$;
 
 rollback;
