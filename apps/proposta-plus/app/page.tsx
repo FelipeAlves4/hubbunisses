@@ -102,6 +102,10 @@ export default function PropostaPage() {
   const [notice, setNotice] = useState("");
   const [showClientForm, setShowClientForm] = useState(false);
   const [showCatalogForm, setShowCatalogForm] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
+  const [editingCatalogId, setEditingCatalogId] = useState<string | null>(
+    null,
+  );
   const [clientName, setClientName] = useState("");
   const [clientType, setClientType] = useState<"individual" | "company">(
     "company",
@@ -241,14 +245,19 @@ export default function PropostaPage() {
     }
     setSaving(true);
     setNotice("");
-    const { error: requestError } = await createClient()
-      .from("proposal_clients")
-      .insert({
-        organization_id: organizationId,
-        name: clientName.trim(),
-        type: clientType,
-        email: clientEmail.trim() || null,
-      });
+    const values = {
+      name: clientName.trim(),
+      type: clientType,
+      email: clientEmail.trim() || null,
+    };
+    const { error: requestError } = editingClientId
+      ? await createClient()
+          .from("proposal_clients")
+          .update(values)
+          .eq("id", editingClientId)
+      : await createClient()
+          .from("proposal_clients")
+          .insert({ organization_id: organizationId, ...values });
     setSaving(false);
     if (requestError) {
       setError(requestError.message);
@@ -256,8 +265,9 @@ export default function PropostaPage() {
     }
     setClientName("");
     setClientEmail("");
+    setEditingClientId(null);
     setShowClientForm(false);
-    setNotice("Cliente cadastrado.");
+    setNotice(editingClientId ? "Cliente atualizado." : "Cliente cadastrado.");
     void load();
   }
   async function saveCatalog(event: React.FormEvent<HTMLFormElement>) {
@@ -270,15 +280,20 @@ export default function PropostaPage() {
     }
     setSaving(true);
     setNotice("");
-    const { error: requestError } = await createClient()
-      .from("proposal_catalog_items")
-      .insert({
-        organization_id: organizationId,
-        name: catalogName.trim(),
-        kind: catalogKind,
-        unit: catalogUnit.trim() || "Unidade",
-        default_price: price,
-      });
+    const values = {
+      name: catalogName.trim(),
+      kind: catalogKind,
+      unit: catalogUnit.trim() || "Unidade",
+      default_price: price,
+    };
+    const { error: requestError } = editingCatalogId
+      ? await createClient()
+          .from("proposal_catalog_items")
+          .update(values)
+          .eq("id", editingCatalogId)
+      : await createClient()
+          .from("proposal_catalog_items")
+          .insert({ organization_id: organizationId, ...values });
     setSaving(false);
     if (requestError) {
       setError(requestError.message);
@@ -286,23 +301,58 @@ export default function PropostaPage() {
     }
     setCatalogName("");
     setCatalogPrice("0");
+    setEditingCatalogId(null);
     setShowCatalogForm(false);
-    setNotice("Item adicionado ao catálogo.");
+    setNotice(
+      editingCatalogId ? "Item de catálogo atualizado." : "Item adicionado ao catálogo.",
+    );
     void load();
   }
+  function openClientForm(client?: Client) {
+    setEditingClientId(client?.id ?? null);
+    setClientName(client?.name ?? "");
+    setClientType(client?.type ?? "company");
+    setClientEmail(client?.email ?? "");
+    setShowClientForm(true);
+  }
+  function closeClientForm() {
+    setEditingClientId(null);
+    setClientName("");
+    setClientEmail("");
+    setShowClientForm(false);
+  }
+  function openCatalogForm(item?: CatalogItem) {
+    setEditingCatalogId(item?.id ?? null);
+    setCatalogName(item?.name ?? "");
+    setCatalogKind(item?.kind ?? "service");
+    setCatalogUnit(item?.unit ?? "Unidade");
+    setCatalogPrice(item ? String(item.default_price) : "0");
+    setShowCatalogForm(true);
+  }
+  function closeCatalogForm() {
+    setEditingCatalogId(null);
+    setCatalogName("");
+    setCatalogPrice("0");
+    setShowCatalogForm(false);
+  }
   function addCatalogItem(item: CatalogItem) {
-    setLines((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        description: item.name,
-        quantity: 1,
-        unit: item.unit,
-        unitPrice: Number(item.default_price),
-        discountAmount: 0,
-        catalogItemId: item.id,
-      },
-    ]);
+    const catalogLine: DraftLine = {
+      id: crypto.randomUUID(),
+      description: item.name,
+      quantity: 1,
+      unit: item.unit,
+      unitPrice: Number(item.default_price),
+      discountAmount: 0,
+      catalogItemId: item.id,
+    };
+    setLines((current) => {
+      const onlyEmptyLine =
+        current.length === 1 &&
+        !current[0].description.trim() &&
+        current[0].unitPrice === 0 &&
+        current[0].discountAmount === 0;
+      return onlyEmptyLine ? [catalogLine] : [...current, catalogLine];
+    });
   }
   function updateLine(
     id: string,
@@ -322,7 +372,16 @@ export default function PropostaPage() {
       !proposalTitle.trim() ||
       lines.some(
         (line) =>
-          !line.description.trim() || line.quantity <= 0 || line.unitPrice < 0,
+          !line.description.trim() ||
+          !Number.isFinite(line.quantity) ||
+          !Number.isFinite(line.unitPrice) ||
+          !Number.isFinite(line.discountAmount) ||
+          line.quantity <= 0 ||
+          line.unitPrice < 0 ||
+          line.discountAmount < 0 ||
+          line.discountAmount >
+            Math.round((line.quantity * line.unitPrice + Number.EPSILON) * 100) /
+              100,
       )
     ) {
       setError("Informe cliente, título e itens válidos antes de salvar.");
@@ -486,7 +545,7 @@ export default function PropostaPage() {
               title="Clientes"
               description="Cadastre contatos para reutilizar em suas propostas."
               action="Novo cliente"
-              onAction={() => setShowClientForm(true)}
+              onAction={() => openClientForm()}
             />
             {showClientForm ? (
               <form className="entry-form" noValidate onSubmit={saveClient}>
@@ -522,19 +581,19 @@ export default function PropostaPage() {
                 <div className="form-actions">
                   <button
                     type="button"
-                    onClick={() => setShowClientForm(false)}
+                    onClick={closeClientForm}
                   >
                     Cancelar
                   </button>
                   <button className="primary" disabled={saving}>
-                    Salvar cliente
+                    {editingClientId ? "Salvar alterações" : "Salvar cliente"}
                   </button>
                 </div>
               </form>
             ) : null}
             <DataTable
               empty="Nenhum cliente cadastrado."
-              headers={["Cliente", "Tipo", "Contato"]}
+              headers={["Cliente", "Tipo", "Contato", "Ações"]}
             >
               {clients.map((client) => (
                 <tr key={client.id}>
@@ -547,6 +606,14 @@ export default function PropostaPage() {
                       : "Pessoa física"}
                   </td>
                   <td>{client.email ?? client.phone ?? "—"}</td>
+                  <td>
+                    <button
+                      className="text-button"
+                      onClick={() => openClientForm(client)}
+                    >
+                      Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
             </DataTable>
@@ -557,7 +624,7 @@ export default function PropostaPage() {
               title="Catálogo"
               description="Produtos e serviços reutilizáveis, sem alterar propostas já criadas."
               action="Novo item"
-              onAction={() => setShowCatalogForm(true)}
+              onAction={() => openCatalogForm()}
             />
             {showCatalogForm ? (
               <form className="entry-form" noValidate onSubmit={saveCatalog}>
@@ -602,19 +669,26 @@ export default function PropostaPage() {
                 <div className="form-actions">
                   <button
                     type="button"
-                    onClick={() => setShowCatalogForm(false)}
+                    onClick={closeCatalogForm}
                   >
                     Cancelar
                   </button>
                   <button className="primary" disabled={saving}>
-                    Salvar item
+                    {editingCatalogId ? "Salvar alterações" : "Salvar item"}
                   </button>
                 </div>
               </form>
             ) : null}
             <DataTable
               empty="Nenhum item cadastrado."
-              headers={["Item", "Tipo", "Unidade", "Preço padrão", "Uso"]}
+              headers={[
+                "Item",
+                "Tipo",
+                "Unidade",
+                "Preço padrão",
+                "Uso",
+                "Ações",
+              ]}
             >
               {catalog.map((item) => (
                 <tr key={item.id}>
@@ -634,6 +708,14 @@ export default function PropostaPage() {
                       }}
                     >
                       Adicionar à proposta
+                    </button>
+                  </td>
+                  <td>
+                    <button
+                      className="text-button"
+                      onClick={() => openCatalogForm(item)}
+                    >
+                      Editar
                     </button>
                   </td>
                 </tr>
@@ -715,6 +797,7 @@ export default function PropostaPage() {
             lines={lines}
             setLines={setLines}
             updateLine={updateLine}
+            onAddCatalogItem={addCatalogItem}
             totals={totals}
             additionalTotal={additionalTotal}
             setAdditionalTotal={setAdditionalTotal}
@@ -890,6 +973,7 @@ function Editor(props: {
     key: keyof DraftLine,
     value: string | number,
   ) => void;
+  onAddCatalogItem: (item: CatalogItem) => void;
   totals: ReturnType<typeof calculateProposalTotals>;
   additionalTotal: string;
   setAdditionalTotal: (value: string) => void;
@@ -912,6 +996,7 @@ function Editor(props: {
     lines,
     setLines,
     updateLine,
+    onAddCatalogItem,
     totals,
     additionalTotal,
     setAdditionalTotal,
@@ -986,18 +1071,7 @@ function Editor(props: {
                     (record) => record.id === e.target.value,
                   );
                   if (item) {
-                    setLines((current) => [
-                      ...current,
-                      {
-                        id: crypto.randomUUID(),
-                        description: item.name,
-                        quantity: 1,
-                        unit: item.unit,
-                        unitPrice: Number(item.default_price),
-                        discountAmount: 0,
-                        catalogItemId: item.id,
-                      },
-                    ]);
+                    onAddCatalogItem(item);
                     e.target.value = "";
                   }
                 }}
@@ -1064,7 +1138,7 @@ function Editor(props: {
                       )
                     }
                   />
-                  <strong>{formatCurrency(lineTotal(line))}</strong>
+                  <strong>{formatCurrency(displayLineTotal(line))}</strong>
                   <button
                     className="icon-button"
                     aria-label={`Remover item ${index + 1}`}
@@ -1133,6 +1207,13 @@ function Editor(props: {
       </div>
     </section>
   );
+}
+function displayLineTotal(line: DraftLine) {
+  try {
+    return lineTotal(line);
+  } catch {
+    return 0;
+  }
 }
 function Totals({
   rows,

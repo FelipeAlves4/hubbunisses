@@ -506,6 +506,7 @@ td small {
     top: 0;
     z-index: 3;
     display: flex;
+    min-width: 0;
     flex-direction: row;
     align-items: center;
     gap: 18px;
@@ -513,6 +514,8 @@ td small {
   }
   .proposta-rail nav {
     display: flex;
+    min-width: 0;
+    flex: 1;
     overflow-x: auto;
   }
   .proposta-rail nav button {
@@ -520,6 +523,8 @@ td small {
     white-space: nowrap;
   }
   .back-link {
+    flex: 0 0 auto;
+    width: auto;
     margin: 0 0 0 auto;
     border: 0;
     padding: 10px;

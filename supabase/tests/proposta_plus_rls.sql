@@ -23,28 +23,65 @@ insert into public.proposal_clients (id, organization_id, created_by, name, type
 values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'TESTE Cliente A', 'company', 'cliente-a@example.test');
 update public.proposal_clients set contact_name = 'Contato A' where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2';
 insert into public.proposal_catalog_items (id, organization_id, created_by, name, kind, unit, default_price)
-values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'TESTE Serviço', 'service', 'hora', 100);
-update public.proposal_catalog_items set default_price = 125 where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3';
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'TESTE Serviço', 'service', 'hora', 19.99);
+update public.proposal_catalog_items set default_price = 19.99 where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3';
 
 insert into public.proposals (id, organization_id, client_id, created_by, title, additional_total, tax_rate)
 values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', '11111111-1111-4111-8111-111111111111', 'TESTE Proposta RLS', 10, 5);
 insert into public.proposal_items (id, organization_id, proposal_id, catalog_item_id, description, quantity, unit, unit_price, discount_amount, total, sort_order)
 values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3', 'TESTE Serviço', 2, 'hora', 125, 20, 230, 0),
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3', 'TESTE Serviço', 3, 'hora', 19.99, 0.02, 59.95, 0),
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4', null, 'TESTE Item removível', 1, 'unidade', 50, 0, 50, 1);
+
+do $$
+begin
+  if (select subtotal from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 109.95 then raise exception 'item insert subtotal failed'; end if;
+  if (select discount_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 0.02 then raise exception 'item insert discount failed'; end if;
+  if (select tax_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 6.00 then raise exception 'item insert tax failed'; end if;
+  if (select grand_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 125.95 then raise exception 'item insert total failed'; end if;
+end $$;
+
+update public.proposal_items
+set quantity = 2.5, unit_price = 19.99, discount_amount = 0.03, total = 49.95
+where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5';
+do $$
+begin
+  if (select subtotal from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 99.95 then raise exception 'item update subtotal failed'; end if;
+  if (select discount_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 0.03 then raise exception 'item update discount failed'; end if;
+  if (select tax_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 5.50 then raise exception 'item update tax failed'; end if;
+  if (select grand_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 115.45 then raise exception 'item update total failed'; end if;
+end $$;
+
 delete from public.proposal_items where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6';
-update public.proposals set status = 'sent', additional_total = 10, tax_rate = 5 where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4';
+do $$
+begin
+  if (select subtotal from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 49.95 then raise exception 'item delete subtotal failed'; end if;
+  if (select tax_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 3.00 then raise exception 'item delete tax failed'; end if;
+  if (select grand_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 62.95 then raise exception 'item delete total failed'; end if;
+end $$;
+
+update public.proposals set status = 'sent', additional_total = 15.50, tax_rate = 7.25 where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4';
 
 do $$
 begin
   if (select count(*) from public.proposal_clients) <> 1 then raise exception 'client scope failed'; end if;
   if (select count(*) from public.proposal_catalog_items) <> 1 then raise exception 'catalog scope failed'; end if;
   if (select count(*) from public.proposals) <> 1 or (select count(*) from public.proposal_items) <> 1 then raise exception 'proposal persistence failed'; end if;
-  if (select subtotal from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 230 then raise exception 'subtotal calculation failed'; end if;
-  if (select discount_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 20 then raise exception 'discount calculation failed'; end if;
-  if (select tax_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 12 then raise exception 'tax calculation failed'; end if;
-  if (select grand_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 252 then raise exception 'grand total calculation failed'; end if;
+  if (select subtotal from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 49.95 then raise exception 'proposal update subtotal failed'; end if;
+  if (select discount_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 0.03 then raise exception 'proposal update discount failed'; end if;
+  if (select tax_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 4.75 then raise exception 'proposal update tax failed'; end if;
+  if (select grand_total from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 70.20 then raise exception 'proposal update total failed'; end if;
   if (select status from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4') <> 'sent' then raise exception 'status change failed'; end if;
+end $$;
+
+insert into public.proposals (id, organization_id, client_id, created_by, title)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', '11111111-1111-4111-8111-111111111111', 'TESTE Exclusão em cascata');
+insert into public.proposal_items (organization_id, proposal_id, description, quantity, unit, unit_price, discount_amount, total, sort_order)
+values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7', 'TESTE Item em cascata', 1, 'unidade', 1, 0, 1, 0);
+delete from public.proposals where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7';
+do $$
+begin
+  if exists (select 1 from public.proposal_items where proposal_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7') then raise exception 'proposal cascade delete left items'; end if;
 end $$;
 
 select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', true);

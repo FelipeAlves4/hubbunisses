@@ -37,4 +37,22 @@ describe("proposal totals", () => {
       }),
     ).toThrow();
   });
+  it("keeps cent precision for fractional quantities and fractional discounts", () => {
+    expect(
+      lineTotal({ quantity: 2.5, unitPrice: 20.5, discountAmount: 0.03 }),
+    ).toBe(51.22);
+    expect(
+      calculateProposalTotals({
+        items: [{ quantity: 2.5, unitPrice: 20.5, discountAmount: 0.03 }],
+        additionalTotal: 10,
+        taxRate: 5,
+      }),
+    ).toEqual({
+      subtotal: 51.22,
+      discountTotal: 0.03,
+      additionalTotal: 10,
+      taxTotal: 3.06,
+      grandTotal: 64.28,
+    });
+  });
 });

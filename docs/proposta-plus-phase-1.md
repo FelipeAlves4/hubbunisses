@@ -14,7 +14,7 @@ Esta primeira entrega cria o aplicativo independente em `apps/proposta-plus`, na
 - RLS para leitura por membro e alteração somente pelo criador;
 - nenhum entitlement automático para `proposta-plus`.
 
-`supabase/tests/proposta_plus_rls.sql` executa o fluxo como o papel `authenticated` e faz rollback integral. Ele requer antes a migration corretiva `20261117170000_fix_proposal_item_total_trigger.sql`: a fundação original contém um defeito no trigger de totalização quando um item é removido.
+`supabase/tests/proposta_plus_rls.sql` executa o fluxo como o papel `authenticated` e faz rollback integral. As correções de totalização aplicadas estão registradas localmente como `20261117165349_20261117170000_fix_proposal_item_total_trigger.sql` e `20261117170524_prepare_proposal_totals_before_update.sql`. A segunda calcula os totais antes da constraint quando `additional_total` ou `tax_rate` mudarem.
 
 O entitlement `proposta-plus` é uma decisão explícita por organização. Nesta validação, ele foi habilitado apenas para `ASEX Fase 4C Teste`; o Hub e o layout servidor do aplicativo verificam esse acesso antes de exibir ou atender o PROPOSTA+.
 
