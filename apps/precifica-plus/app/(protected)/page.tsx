@@ -47,8 +47,8 @@ import {
   CompanyProfileError,
   companyProfileRepository,
   type CompanyProfile,
-} from "../lib/company-profile";
-import { buildPricingReportData } from "../lib/report-data";
+} from "../../lib/company-profile";
+import { buildPricingReportData } from "../../lib/report-data";
 import {
   simulationRepository,
   SimulationStorageError,
@@ -57,10 +57,11 @@ import {
   type SavedScenario,
   type SimulationInput,
   type SimulationKind,
-} from "../lib/simulation-repository";
-import { SupabaseSimulationRepository } from "../lib/supabase-simulation-repository";
-import { createClient } from "../lib/supabase/browser";
-import { isSupabaseConfigured, portalUrl } from "../lib/supabase/config";
+} from "../../lib/simulation-repository";
+import { SupabaseSimulationRepository } from "../../lib/supabase-simulation-repository";
+import { createClient } from "../../lib/supabase/browser";
+import { isSupabaseConfigured, portalUrl } from "../../lib/supabase/config";
+import { LocalAuthControls } from "../local-auth-controls";
 
 type View = "calculator" | "history" | "reports";
 type ProductForm = Record<keyof ProductPricingInput, string>;
@@ -636,9 +637,7 @@ export default function PrecificaPage() {
       const { data } = await supabase.auth.getClaims();
       const userId = data?.claims?.sub;
       if (!userId) {
-        window.location.assign(
-          `${portalUrl}/login?next=${encodeURIComponent(window.location.href)}`,
-        );
+        window.location.assign("/login?next=/");
         return;
       }
       const { data: membership, error: membershipError } = await supabase
@@ -648,7 +647,7 @@ export default function PrecificaPage() {
         .limit(1)
         .maybeSingle();
       if (membershipError || !membership) {
-        window.location.assign(`${portalUrl}/onboarding`);
+        window.location.assign("/access-denied");
         return;
       }
       if (active) {
@@ -929,7 +928,7 @@ export default function PrecificaPage() {
     if (!result) return;
     setBusyPdf(true);
     try {
-      const { downloadPricingReport } = await import("../lib/pricing-report");
+      const { downloadPricingReport } = await import("../../lib/pricing-report");
       const input = inputFor(kind, product, service);
       const data = buildPricingReportData({
         referenceName: referenceName || input.name,
@@ -963,7 +962,7 @@ export default function PrecificaPage() {
   return (
     <main className="pricing-shell">
       <aside className="pricing-rail" aria-label="Navegação do PRECIFICA+">
-        <a className="pricing-brand" href="http://localhost:3000">
+        <a className="pricing-brand" href={portalUrl}>
           PRECIFICA<span>+</span>
         </a>
         <nav>
@@ -997,6 +996,7 @@ export default function PrecificaPage() {
               ? " Conectando à organização…"
               : " Suas simulações estão salvas neste navegador. Elas ainda não são sincronizadas entre dispositivos."}
         </p>
+        {isSupabaseConfigured() ? <LocalAuthControls /> : null}
       </aside>
       <section className="pricing-content">
         {view === "calculator" ? (

@@ -1,5 +1,20 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 
+/**
+ * Keeps post-auth navigation inside the application that received the login.
+ * External URLs, protocol-relative values, and malformed paths fall back home.
+ */
+export function safeInternalPath(value: string | null | undefined, fallback = "/") {
+  if (!value) return fallback;
+  try {
+    const candidate = new URL(value, "https://asex.local");
+    if (candidate.origin !== "https://asex.local") return fallback;
+    return `${candidate.pathname}${candidate.search}${candidate.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 export function Button({ className = "", onClick, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return <button className={`asex-button ${className}`} onClick={onClick} {...props} />;
 }

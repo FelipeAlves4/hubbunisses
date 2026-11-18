@@ -169,7 +169,7 @@ export function CompanyIdentitySettings({
             <label>E-mail<input type="email" value={settings.email} disabled={!canManage || !settingsReady} onChange={(event) => setSettings((current) => ({ ...current, email: event.target.value }))} placeholder="comercial@empresa.com" /></label>
             <label>Cor de destaque<input className="identity-color" type="color" value={settings.accentColor} disabled={!canManage || !settingsReady} onChange={(event) => setSettings((current) => ({ ...current, accentColor: event.target.value.toUpperCase() }))} /></label>
           </div>
-          <label>Endereço <span className="optional-label">opcional</span><textarea value={settings.address} disabled={!canManage || !settingsReady} onChange={(event) => setSettings((current) => ({ ...current, address: event.target.value }))} placeholder="Rua, número, cidade e CEP" /></label>
+          <label>Endereço <span className="optional-label">opcional</span><textarea className="identity-address resize-none" value={settings.address} disabled={!canManage || !settingsReady} onChange={(event) => setSettings((current) => ({ ...current, address: event.target.value }))} placeholder="Rua, número, cidade e CEP" /></label>
           <div className="identity-template"><span>Template padrão para novas propostas</span><TemplatePicker value={settings.defaultTemplate} onChange={(template) => setSettings((current) => ({ ...current, defaultTemplate: template }))} /></div>
         </div>
         <aside className="identity-preview" style={{ "--identity-accent": settings.accentColor } as CSSProperties}>

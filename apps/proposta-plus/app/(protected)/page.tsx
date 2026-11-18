@@ -15,24 +15,25 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { ProposalDocumentActions } from "../components/proposal-document-actions";
-import { CompanyIdentitySettings } from "../components/company-identity-settings";
+import { ProposalDocumentActions } from "../../components/proposal-document-actions";
+import { CompanyIdentitySettings } from "../../components/company-identity-settings";
 import {
   ProposalDocumentPreview,
   TemplatePicker,
-} from "../components/proposal-document-preview";
+} from "../../components/proposal-document-preview";
 import type {
   OrganizationDocumentFallback,
   ProposalDocumentData,
   ProposalTemplate,
-} from "../lib/proposal-document";
+} from "../../lib/proposal-document";
 import {
   calculateProposalTotals,
   formatCurrency,
   lineTotal,
-} from "../lib/proposal-math";
-import { createClient } from "../lib/supabase/browser";
-import { isSupabaseConfigured, portalUrl } from "../lib/supabase/config";
+} from "../../lib/proposal-math";
+import { createClient } from "../../lib/supabase/browser";
+import { isSupabaseConfigured, portalUrl } from "../../lib/supabase/config";
+import { LocalAuthControls } from "../local-auth-controls";
 
 type Section =
   | "overview"
@@ -171,9 +172,7 @@ export default function PropostaPage() {
       const { data: claims } = await supabase.auth.getClaims();
       const userId = claims?.claims?.sub;
       if (!userId) {
-        window.location.assign(
-          `${portalUrl}/login?next=${encodeURIComponent(window.location.href)}`,
-        );
+        window.location.assign("/login?next=/");
         return;
       }
       const { data: membership, error: membershipError } = await supabase
@@ -183,7 +182,7 @@ export default function PropostaPage() {
         .limit(1)
         .maybeSingle();
       if (membershipError || !membership) {
-        window.location.assign(`${portalUrl}/onboarding`);
+        window.location.assign("/access-denied");
         return;
       }
       const org = membership.organizations as unknown as {
@@ -589,6 +588,7 @@ export default function PropostaPage() {
           <ArrowLeft size={17} />
           Voltar ao Hub
         </a>
+        {isSupabaseConfigured() ? <LocalAuthControls /> : null}
       </aside>
       <section className="proposta-workspace" id="top">
         <header className="proposta-header">

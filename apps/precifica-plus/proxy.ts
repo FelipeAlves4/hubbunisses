@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { supabaseCookieOptions } from "./lib/supabase/config";
 
 function configured() {
   return Boolean(
@@ -10,14 +11,13 @@ function configured() {
 
 export async function proxy(request: NextRequest) {
   if (!configured()) return NextResponse.next({ request });
+  if (request.nextUrl.pathname === "/login") return NextResponse.next({ request });
   let response = NextResponse.next({ request });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {
-      cookieOptions: process.env.NEXT_PUBLIC_SUPABASE_COOKIE_DOMAIN
-        ? { domain: process.env.NEXT_PUBLIC_SUPABASE_COOKIE_DOMAIN }
-        : undefined,
+      cookieOptions: supabaseCookieOptions(),
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll(cookiesToSet) {
@@ -34,11 +34,11 @@ export async function proxy(request: NextRequest) {
   );
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims?.sub) {
-    const login = new URL(
-      "/login",
-      process.env.NEXT_PUBLIC_ASEX_PORTAL_URL ?? "http://localhost:3000",
-    );
-    login.searchParams.set("next", request.nextUrl.href);
+    const login = new URL("/login", request.url);
+    login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    if (request.cookies.getAll().some(({ name }) => name.includes("-auth-token"))) {
+      login.searchParams.set("reason", "session-expired");
+    }
     return NextResponse.redirect(login);
   }
   return response;
