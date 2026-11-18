@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   Check,
@@ -43,6 +44,10 @@ type Section =
   | "editor"
   | "document"
   | "settings";
+type PropostaPageProps = {
+  /** A relative destination makes the embedded Portal experience a client transition. */
+  hubHref?: string;
+};
 type Client = {
   id: string;
   name: string;
@@ -103,7 +108,7 @@ const emptyLine = (): DraftLine => ({
   discountAmount: 0,
 });
 
-export default function PropostaPage() {
+export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps) {
   const [section, setSection] = useState<Section>("overview");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [organizationRole, setOrganizationRole] = useState<"owner" | "member" | null>(null);
@@ -584,10 +589,10 @@ export default function PropostaPage() {
             </button>
           ))}
         </nav>
-        <a className="back-link" href={portalUrl}>
+        <Link className="back-link" href={hubHref}>
           <ArrowLeft size={17} />
           Voltar ao Hub
-        </a>
+        </Link>
         {isSupabaseConfigured() ? <LocalAuthControls /> : null}
       </aside>
       <section className="proposta-workspace" id="top">

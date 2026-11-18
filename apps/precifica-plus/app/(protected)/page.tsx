@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import {
   ArchiveRestore,
   ArrowRight,
@@ -67,6 +68,10 @@ type View = "calculator" | "history" | "reports";
 type ProductForm = Record<keyof ProductPricingInput, string>;
 type ServiceForm = Record<keyof ServicePricingInput, string>;
 type Result = PricingResult & { laborCost?: number };
+type PrecificaPageProps = {
+  /** A relative destination makes the embedded Portal experience a client transition. */
+  hubHref?: string;
+};
 
 const BRL = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -562,7 +567,7 @@ function ScenarioSimulator({
   );
 }
 
-export default function PrecificaPage() {
+export default function PrecificaPage({ hubHref = portalUrl }: PrecificaPageProps) {
   const [repository, setRepository] =
     useState<SimulationRepository>(simulationRepository);
   const [storageMode, setStorageMode] = useState<
@@ -962,9 +967,9 @@ export default function PrecificaPage() {
   return (
     <main className="pricing-shell">
       <aside className="pricing-rail" aria-label="Navegação do PRECIFICA+">
-        <a className="pricing-brand" href={portalUrl}>
+        <Link className="pricing-brand" href={hubHref}>
           PRECIFICA<span>+</span>
-        </a>
+        </Link>
         <nav>
           <button
             className={view === "calculator" ? "current" : ""}

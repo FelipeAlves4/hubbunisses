@@ -1,1 +1,5 @@
-export { default } from "../../../precifica-plus/app/(protected)/page";
+import PrecificaPage from "../../../precifica-plus/app/(protected)/page";
+
+export default function PortalPrecificaPage() {
+  return <PrecificaPage hubHref="/" />;
+}

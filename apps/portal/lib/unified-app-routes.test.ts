@@ -7,10 +7,25 @@ const source = (path: string) =>
 describe("unified application routes", () => {
   it("mounts the existing PRECIFICA+ and PROPOSTA+ experiences under the Hub", () => {
     expect(source("../app/precifica/page.tsx")).toContain(
-      'precifica-plus/app/(protected)/page',
+      '<PrecificaPage hubHref="/" />',
     );
     expect(source("../app/proposta/page.tsx")).toContain(
-      'proposta-plus/app/(protected)/page',
+      '<PropostaPage hubHref="/" />',
+    );
+  });
+
+  it("returns to the Hub through an internal client-side route", () => {
+    expect(source("../../precifica-plus/app/(protected)/page.tsx")).toContain(
+      'import Link from "next/link"',
+    );
+    expect(source("../../precifica-plus/app/(protected)/page.tsx")).toContain(
+      'href={hubHref}',
+    );
+    expect(source("../../proposta-plus/app/(protected)/page.tsx")).toContain(
+      'import Link from "next/link"',
+    );
+    expect(source("../../proposta-plus/app/(protected)/page.tsx")).toContain(
+      'href={hubHref}',
     );
   });
 
