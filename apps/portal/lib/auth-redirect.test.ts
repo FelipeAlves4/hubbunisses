@@ -8,14 +8,20 @@ const applications = {
 };
 
 describe("safeApplicationRedirect", () => {
-  it("keeps navigation within the three configured applications", () => {
+  it("keeps internal navigation on the current Portal origin", () => {
     expect(
-      safeApplicationRedirect("https://proposta.example.test/?from=login", applications),
-    ).toBe("https://proposta.example.test/?from=login");
+      safeApplicationRedirect("/proposta?from=login", applications),
+    ).toBe("/proposta?from=login");
+    expect(
+      safeApplicationRedirect("https://hub.example.test/precifica", applications),
+    ).toBe("/precifica");
   });
 
-  it("rejects arbitrary and malformed redirect targets", () => {
+  it("rejects cross-origin, protocol-relative, and malformed redirect targets", () => {
     expect(safeApplicationRedirect("https://evil.example.test", applications)).toBe("/");
+    expect(safeApplicationRedirect("https://proposta.example.test", applications)).toBe("/");
+    expect(safeApplicationRedirect("//evil.example.test", applications)).toBe("/");
+    expect(safeApplicationRedirect("/\\evil.example.test", applications)).toBe("/");
     expect(safeApplicationRedirect("http://[", applications)).toBe("/");
   });
 });
