@@ -5,9 +5,10 @@ import {
   FileText,
   Settings2,
 } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthControls } from "./auth-controls";
-import { applicationUrls, isSupabaseConfigured } from "../lib/supabase/config";
+import { isSupabaseConfigured } from "../lib/supabase/config";
 import { createClient } from "../lib/supabase/server";
 
 const applications = [
@@ -93,7 +94,6 @@ async function getIdentity(): Promise<PortalIdentity> {
 
 export default async function PortalPage() {
   const identity = await getIdentity();
-  const urls = applicationUrls();
   const configured = isSupabaseConfigured();
   return (
     <main className="hub-shell" id="inicio">
@@ -179,13 +179,13 @@ export default async function PortalPage() {
               </>
             );
             return isEnabled && application.urlKey ? (
-              <a
+              <Link
                 className="application-card application-card-active"
-                href={urls[application.urlKey]}
+                href={`/${application.urlKey}`}
                 key={application.name}
               >
                 {content}
-              </a>
+              </Link>
             ) : (
               <article
                 className="application-card application-card-building"

@@ -57,13 +57,13 @@ describe("application navigation", () => {
     expect(applicationUrls().precifica).toBe("https://hub.example.test/precifica");
   });
 
-  it("renders the active card as a normal link without a click handler", () => {
+  it("renders the active card as an internal link without a click handler", () => {
     const page = readFileSync(new URL("../../app/page.tsx", import.meta.url), "utf8");
     const card = page.match(
-      /<a\s+className="application-card application-card-active"[\s\S]*?<\/a>/,
+      /<Link\s+className="application-card application-card-active"[\s\S]*?<\/Link>/,
     )?.[0];
 
-    expect(card).toContain("href={urls[application.urlKey]}");
+    expect(card).toContain('href={`/${application.urlKey}`}');
     expect(card).not.toContain("onClick");
   });
 
