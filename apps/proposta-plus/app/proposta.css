@@ -1,4 +1,4 @@
-.proposta-shell {
+:root {
   --proposal-navy: #10233f;
   --proposal-blue: #2563eb;
   --proposal-blue-dark: #1d4ed8;
@@ -7,6 +7,9 @@
   --proposal-muted: #65738a;
   --proposal-line: #dbe2ec;
   --proposal-radius: 12px;
+}
+body {
+  background: var(--proposal-bg);
 }
 button,
 select,
@@ -18,7 +21,6 @@ textarea {
   min-height: 100dvh;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
-  background: var(--proposal-bg);
   color: var(--proposal-ink);
 }
 .proposta-rail {

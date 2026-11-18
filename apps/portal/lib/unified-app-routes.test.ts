@@ -26,4 +26,16 @@ describe("unified application routes", () => {
     expect(guard).toContain('redirect(`/login?next=${encodeURIComponent(returnPath)}`)');
     expect(guard).toContain('redirect(`/access-denied?app=${appKey}`)');
   });
+
+  it("loads product CSS only in its route layout, never in the Portal root", () => {
+    const rootLayout = source("../app/layout.tsx");
+    expect(rootLayout).not.toContain("precifica-plus/app/precifica.css");
+    expect(rootLayout).not.toContain("proposta-plus/app/proposta.css");
+    expect(source("../app/precifica/layout.tsx")).toContain(
+      'import "../../../precifica-plus/app/precifica.css"',
+    );
+    expect(source("../app/proposta/layout.tsx")).toContain(
+      'import "../../../proposta-plus/app/proposta.css"',
+    );
+  });
 });

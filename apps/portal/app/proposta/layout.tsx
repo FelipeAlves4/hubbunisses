@@ -1,4 +1,5 @@
 import { requireApplicationAccess } from "../../lib/application-access";
+import "../../../proposta-plus/app/proposta.css";
 
 export default async function PropostaLayout({
   children,
