@@ -3,6 +3,7 @@ import Link from "next/link";
 const applicationNames = {
   "precifica-plus": "PRECIFICA+",
   "proposta-plus": "PROPOSTA+",
+  "nexo-finance": "NEXO Finance",
 } as const;
 
 export default async function AccessDeniedPage({

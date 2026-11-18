@@ -30,12 +30,12 @@ const applications = [
     name: "NEXO Finance",
     description: "Organize suas finanças e acompanhe seus resultados.",
     icon: ChartNoAxesCombined,
-    appKey: null,
-    urlKey: null,
+    appKey: "nexo-finance",
+    urlKey: "financeiro",
   },
 ] as const;
 
-type AppKey = "precifica-plus" | "proposta-plus";
+type AppKey = "precifica-plus" | "proposta-plus" | "nexo-finance";
 type PortalIdentity = {
   organizationName?: string;
   initials?: string;
