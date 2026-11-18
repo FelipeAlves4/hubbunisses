@@ -2,7 +2,9 @@
 
 import { FormEvent, useState } from "react";
 import { ArrowRight, KeyRound, Mail } from "lucide-react";
+import { safeApplicationRedirect } from "../../lib/auth-redirect";
 import { createClient } from "../../lib/supabase/browser";
+import { applicationUrls } from "../../lib/supabase/config";
 
 type Mode = "login" | "signup" | "reset";
 
@@ -10,6 +12,13 @@ export function LoginForm() {
   const [mode, setMode] = useState<Mode>("login");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const next =
+    typeof window === "undefined"
+      ? "/"
+      : safeApplicationRedirect(
+          new URLSearchParams(window.location.search).get("next"),
+          applicationUrls(),
+        );
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,7 +52,7 @@ export function LoginForm() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/confirm`,
+            emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(next)}`,
           },
         });
         if (error) throw error;
@@ -58,7 +67,7 @@ export function LoginForm() {
         });
         if (error) throw error;
       }
-      window.location.assign("/");
+      window.location.assign(next);
     } catch (error) {
       setMessage(
         error instanceof Error

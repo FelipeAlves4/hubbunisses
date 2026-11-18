@@ -1,5 +1,5 @@
 -- PROPOSTA+ document identity settings.
--- Local review artifact only. Do not apply remotely without explicit approval.
+-- Version reconciled to the timestamp recorded by the remote migration history.
 
 create table public.organization_proposal_document_settings (
   organization_id uuid primary key references public.organizations(id) on delete cascade,
@@ -13,6 +13,12 @@ create table public.organization_proposal_document_settings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- A NULL value is intentionally allowed only while a BEFORE INSERT trigger is
+-- running. The trigger below always supplies a valid template before the
+-- existing NOT NULL constraint is checked, allowing each organization default
+-- to work when an API client omits `template`.
+alter table public.proposals alter column template drop default;
 
 create trigger organization_proposal_document_settings_set_updated_at
 before update on public.organization_proposal_document_settings
@@ -62,6 +68,8 @@ begin
   select * into settings
   from public.organization_proposal_document_settings
   where organization_id = new.organization_id;
+
+  new.template := coalesce(new.template, settings.default_template, 'executive');
 
   if found then
     new.company_snapshot := new.company_snapshot || jsonb_strip_nulls(jsonb_build_object(

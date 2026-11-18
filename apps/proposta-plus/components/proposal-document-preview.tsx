@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import {
   companyDocumentData,
   documentText,
@@ -74,7 +75,14 @@ export function ProposalDocumentPreview({
     .join(" · ");
 
   return (
-    <article className={`proposal-paper proposal-paper-${template}`}>
+    <article
+      className={`proposal-paper proposal-paper-${template}`}
+      style={
+        company.accentColor
+          ? ({ "--document-accent": company.accentColor } as CSSProperties)
+          : undefined
+      }
+    >
       <header className="paper-header">
         <div className="paper-company">
           {company.logoUrl ? (
@@ -88,7 +96,7 @@ export function ProposalDocumentPreview({
           )}
           <div>
             <strong>{company.name}</strong>
-            <small>{[company.documentNumber, company.phone].filter(Boolean).join(" · ")}</small>
+            <small>{[company.documentNumber, company.phone, company.email].filter(Boolean).join(" · ")}</small>
           </div>
         </div>
         <div className="paper-number">
@@ -133,6 +141,7 @@ export function ProposalDocumentPreview({
 
       <section className="paper-bottom">
         <div className="paper-terms">
+          {company.address ? <DocumentBlock title="Endereço" value={company.address} /> : null}
           {proposal.payment_terms ? <DocumentBlock title="Condições de pagamento" value={proposal.payment_terms} /> : null}
           {proposal.delivery_terms ? <DocumentBlock title="Condições de entrega" value={proposal.delivery_terms} /> : null}
           {proposal.notes ? <DocumentBlock title="Observações" value={proposal.notes} /> : null}

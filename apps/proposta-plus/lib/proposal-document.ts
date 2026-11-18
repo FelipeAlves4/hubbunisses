@@ -39,6 +39,16 @@ export type OrganizationDocumentFallback = {
   logoUrl: string | null;
 };
 
+export type CompanyDocumentData = {
+  name: string;
+  phone: string | null;
+  logoUrl: string | null;
+  documentNumber: string | null;
+  email: string | null;
+  address: string | null;
+  accentColor: string | null;
+};
+
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
@@ -59,16 +69,27 @@ export const documentText = (source: Record<string, unknown>, key: string) => {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 };
 
+const validAccentColor = (value: string | null) =>
+  value && /^#[0-9a-f]{6}$/i.test(value) ? value : null;
+
 export function companyDocumentData(
   proposal: ProposalDocumentData,
   fallback: OrganizationDocumentFallback,
-) {
+): CompanyDocumentData {
   return {
-    name: documentText(proposal.company_snapshot, "name") ?? fallback.name,
+    name:
+      documentText(proposal.company_snapshot, "trade_name") ??
+      documentText(proposal.company_snapshot, "name") ??
+      fallback.name,
     phone: documentText(proposal.company_snapshot, "phone") ?? fallback.phone,
     logoUrl:
       documentText(proposal.company_snapshot, "logo_url") ?? fallback.logoUrl,
     documentNumber: documentText(proposal.company_snapshot, "document_number"),
+    email: documentText(proposal.company_snapshot, "email"),
+    address: documentText(proposal.company_snapshot, "address"),
+    accentColor: validAccentColor(
+      documentText(proposal.company_snapshot, "accent_color"),
+    ),
   };
 }
 

@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { ProposalDocumentActions } from "../components/proposal-document-actions";
+import { CompanyIdentitySettings } from "../components/company-identity-settings";
 import {
   ProposalDocumentPreview,
   TemplatePicker,
@@ -104,6 +105,9 @@ const emptyLine = (): DraftLine => ({
 export default function PropostaPage() {
   const [section, setSection] = useState<Section>("overview");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationRole, setOrganizationRole] = useState<"owner" | "member" | null>(null);
+  const [organizationDefaultTemplate, setOrganizationDefaultTemplate] =
+    useState<ProposalTemplate>("executive");
   const [organizationName, setOrganizationName] = useState("Sua organização");
   const [organizationDocument, setOrganizationDocument] =
     useState<OrganizationDocumentFallback>({
@@ -174,7 +178,7 @@ export default function PropostaPage() {
       }
       const { data: membership, error: membershipError } = await supabase
         .from("organization_members")
-        .select("organization_id, organizations(name, phone, logo_url)")
+        .select("organization_id, role, organizations(name, phone, logo_url)")
         .eq("user_id", userId)
         .limit(1)
         .maybeSingle();
@@ -188,13 +192,14 @@ export default function PropostaPage() {
         logo_url: string | null;
       } | null;
       setOrganizationId(membership.organization_id);
+      setOrganizationRole(membership.role as "owner" | "member");
       setOrganizationName(org?.name ?? "Sua organização");
       setOrganizationDocument({
         name: org?.name ?? "Sua organização",
         phone: org?.phone ?? null,
         logoUrl: org?.logo_url ?? null,
       });
-      const [clientResult, catalogResult, proposalResult] = await Promise.all([
+      const [clientResult, catalogResult, proposalResult, documentSettingsResult] = await Promise.all([
         supabase
           .from("proposal_clients")
           .select("id, name, type, email, phone, contact_name")
@@ -210,6 +215,11 @@ export default function PropostaPage() {
           )
           .order("updated_at", { ascending: false })
           .limit(8),
+        supabase
+          .from("organization_proposal_document_settings")
+          .select("default_template")
+          .eq("organization_id", membership.organization_id)
+          .maybeSingle(),
       ]);
       const requestError =
         clientResult.error ?? catalogResult.error ?? proposalResult.error;
@@ -217,6 +227,13 @@ export default function PropostaPage() {
       setClients((clientResult.data ?? []) as Client[]);
       setCatalog((catalogResult.data ?? []) as CatalogItem[]);
       setProposals((proposalResult.data ?? []) as unknown as Proposal[]);
+      if (
+        documentSettingsResult.data?.default_template === "executive" ||
+        documentSettingsResult.data?.default_template === "minimal" ||
+        documentSettingsResult.data?.default_template === "commercial"
+      ) {
+        setOrganizationDefaultTemplate(documentSettingsResult.data.default_template);
+      }
     } catch (cause) {
       const message =
         cause &&
@@ -538,6 +555,10 @@ export default function PropostaPage() {
     setNotice(`Proposta marcada como ${statusLabel[status].toLowerCase()}.`);
     void load();
   }
+  function openNewProposal() {
+    setProposalTemplate(organizationDefaultTemplate);
+    setSection("editor");
+  }
 
   const nav = [
     ["overview", "Visão geral", LayoutDashboard],
@@ -620,7 +641,7 @@ export default function PropostaPage() {
           <Overview
             metrics={metrics}
             proposals={proposals}
-            onNew={() => setSection("editor")}
+            onNew={openNewProposal}
             onOpen={() => setSection("proposals")}
           />
         ) : section === "clients" ? (
@@ -812,7 +833,7 @@ export default function PropostaPage() {
               title="Propostas"
               description="Acompanhe rascunhos, propostas enviadas e decisões comerciais."
               action="Nova proposta"
-              onAction={() => setSection("editor")}
+              onAction={openNewProposal}
             />
             <DataTable
               empty="Crie sua primeira proposta para começar."
@@ -915,16 +936,18 @@ export default function PropostaPage() {
             onNotice={setNotice}
             onError={setError}
           />
+        ) : organizationId ? (
+          <CompanyIdentitySettings
+            organizationId={organizationId}
+            fallback={organizationDocument}
+            canManage={organizationRole === "owner"}
+            onIdentitySaved={setOrganizationDocument}
+            onDefaultTemplateSaved={setOrganizationDefaultTemplate}
+            onNotice={setNotice}
+            onError={setError}
+          />
         ) : (
-          <section className="setup-panel">
-            <Settings size={28} />
-            <h1>Configurações da proposta</h1>
-            <p>
-              As personalizações de marca, templates de PDF e compartilhamento
-              serão adicionadas após a aprovação da migration e da fundação de
-              dados.
-            </p>
-          </section>
+          <section className="setup-panel"><LoaderCircle className="spin" size={28} /><h1>Carregando configurações</h1></section>
         )}
       </section>
     </main>

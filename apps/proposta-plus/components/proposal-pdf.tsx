@@ -13,6 +13,7 @@ import {
   formatDocumentDate,
   proposalIdentifier,
   type OrganizationDocumentFallback,
+  type CompanyDocumentData,
   type ProposalDocumentData,
   type ProposalTemplate,
 } from "../lib/proposal-document";
@@ -55,7 +56,9 @@ const styles = StyleSheet.create({
   termValue: { color: "#475569", fontSize: 8.5 },
   totals: { width: "42%", padding: 14, borderRadius: 6 },
   totalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 6 },
-  grand: { flexDirection: "row", justifyContent: "space-between", marginTop: 7, paddingTop: 9, borderTopWidth: 1, fontFamily: "Helvetica-Bold", fontSize: 13 },
+  grand: { flexDirection: "row", justifyContent: "space-between", marginTop: 7, paddingTop: 9, borderTopWidth: 1, fontFamily: "Helvetica-Bold", fontSize: 11 },
+  grandLabel: { width: "61%" },
+  grandValue: { width: "39%", textAlign: "right" },
   footer: { position: "absolute", bottom: 22, left: 42, right: 42, borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingTop: 8, flexDirection: "row", justifyContent: "space-between", color: "#64748b", fontSize: 7 },
 });
 
@@ -69,30 +72,21 @@ export function ProposalPdf({
   template?: ProposalTemplate;
 }) {
   const company = companyDocumentData(proposal, fallback);
-  const colors = palette[template];
+  const colors = { ...palette[template], accent: company.accentColor ?? palette[template].accent };
   const clientName = documentText(proposal.client_snapshot, "name") ?? "Cliente";
   const clientContact = [
     documentText(proposal.client_snapshot, "contact_name"),
     documentText(proposal.client_snapshot, "email"),
     documentText(proposal.client_snapshot, "phone"),
   ].filter(Boolean).join(" · ");
+  // A separate closing page prevents an oversized summary from competing with
+  // a very long table. Short and medium proposals keep their summary beside
+  // the final items for a more compact document.
+  const separateSummaryPage = proposal.proposal_items.length > 40;
   return (
     <Document title={`${proposalIdentifier(proposal.number)} - ${proposal.title}`} author={company.name} subject="Proposta comercial" language="pt-BR">
       <Page size="A4" style={styles.page} wrap>
-        <View style={{ ...styles.header, borderBottomColor: colors.accent }} fixed>
-          <View style={styles.brand}>
-            {company.logoUrl ? <Image style={styles.logo} src={company.logoUrl} /> : <Text style={{ ...styles.monogram, backgroundColor: colors.ink }}>{company.name.slice(0, 2).toUpperCase()}</Text>}
-            <View>
-              <Text style={styles.companyName}>{company.name}</Text>
-              <Text style={styles.small}>{[company.documentNumber, company.phone].filter(Boolean).join(" · ")}</Text>
-            </View>
-          </View>
-          <View style={styles.number}>
-            <Text style={styles.numberLabel}>PROPOSTA COMERCIAL</Text>
-            <Text style={{ ...styles.numberValue, color: colors.ink }}>{proposalIdentifier(proposal.number)}</Text>
-            <Text style={styles.small}>Emitida em {formatDocumentDate(proposal.issued_at)}</Text>
-          </View>
-        </View>
+        <PdfHeader proposal={proposal} company={company} colors={colors} fixed={false} />
 
         <View style={styles.intro}>
           <View><Text style={styles.eyebrow}>Para</Text><Text style={styles.client}>{clientName}</Text>{clientContact ? <Text style={styles.small}>{clientContact}</Text> : null}</View>
@@ -109,24 +103,27 @@ export function ProposalPdf({
           </View>)}
         </View>
 
-        <View style={styles.lower} wrap={false}>
-          <View style={styles.terms}>
-            {proposal.payment_terms ? <PdfBlock title="Condições de pagamento" value={proposal.payment_terms} /> : null}
-            {proposal.delivery_terms ? <PdfBlock title="Condições de entrega" value={proposal.delivery_terms} /> : null}
-            {proposal.notes ? <PdfBlock title="Observações" value={proposal.notes} /> : null}
-          </View>
-          <View style={{ ...styles.totals, backgroundColor: colors.pale }}>
-            <PdfTotal label="Subtotal" value={formatDocumentCurrency(proposal.subtotal)} />
-            <PdfTotal label="Descontos" value={`− ${formatDocumentCurrency(proposal.discount_total)}`} />
-            <PdfTotal label="Acréscimos" value={formatDocumentCurrency(proposal.additional_total)} />
-            <PdfTotal label={`Tributos (${Number(proposal.tax_rate).toLocaleString("pt-BR")}%)`} value={formatDocumentCurrency(proposal.tax_total)} />
-            <View style={{ ...styles.grand, borderTopColor: colors.accent }}><Text>Total da proposta</Text><Text>{formatDocumentCurrency(proposal.grand_total)}</Text></View>
-          </View>
-        </View>
-        <View style={styles.footer} fixed><Text>{company.name}</Text><Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} /></View>
+        {!separateSummaryPage ? <PdfSummary proposal={proposal} company={company} colors={colors} /> : null}
+        <PdfFooter company={company} />
       </Page>
+      {separateSummaryPage ? <Page size="A4" style={styles.page}><PdfHeader proposal={proposal} company={company} colors={colors} fixed={false} /><PdfSummary proposal={proposal} company={company} colors={colors} /><PdfFooter company={company} fixed={false} /></Page> : null}
     </Document>
   );
+}
+
+function PdfHeader({ proposal, company, colors, fixed = true }: { proposal: ProposalDocumentData; company: CompanyDocumentData; colors: { ink: string; accent: string; pale: string }; fixed?: boolean }) {
+  return <View style={{ ...styles.header, borderBottomColor: colors.accent }} fixed={fixed}>
+    <View style={styles.brand}>{company.logoUrl ? <Image style={styles.logo} src={company.logoUrl} /> : <Text style={{ ...styles.monogram, backgroundColor: colors.ink }}>{company.name.slice(0, 2).toUpperCase()}</Text>}<View><Text style={styles.companyName}>{company.name}</Text><Text style={styles.small}>{[company.documentNumber, company.phone, company.email].filter(Boolean).join(" · ")}</Text></View></View>
+    <View style={styles.number}><Text style={styles.numberLabel}>PROPOSTA COMERCIAL</Text><Text style={{ ...styles.numberValue, color: colors.ink }}>{proposalIdentifier(proposal.number)}</Text><Text style={styles.small}>Emitida em {formatDocumentDate(proposal.issued_at)}</Text></View>
+  </View>;
+}
+
+function PdfSummary({ proposal, company, colors }: { proposal: ProposalDocumentData; company: CompanyDocumentData; colors: { ink: string; accent: string; pale: string } }) {
+  return <View style={styles.lower} wrap={false}><View style={styles.terms}>{company.address ? <PdfBlock title="Endereço" value={company.address} /> : null}{proposal.payment_terms ? <PdfBlock title="Condições de pagamento" value={proposal.payment_terms} /> : null}{proposal.delivery_terms ? <PdfBlock title="Condições de entrega" value={proposal.delivery_terms} /> : null}{proposal.notes ? <PdfBlock title="Observações" value={proposal.notes} /> : null}</View><View style={{ ...styles.totals, backgroundColor: colors.pale }}><PdfTotal label="Subtotal" value={formatDocumentCurrency(proposal.subtotal)} /><PdfTotal label="Descontos" value={`− ${formatDocumentCurrency(proposal.discount_total)}`} /><PdfTotal label="Acréscimos" value={formatDocumentCurrency(proposal.additional_total)} /><PdfTotal label={`Tributos (${Number(proposal.tax_rate).toLocaleString("pt-BR")}%)`} value={formatDocumentCurrency(proposal.tax_total)} /><View style={{ ...styles.grand, borderTopColor: colors.accent }}><Text style={styles.grandLabel}>Total da proposta</Text><Text style={styles.grandValue}>{formatDocumentCurrency(proposal.grand_total)}</Text></View></View></View>;
+}
+
+function PdfFooter({ company, fixed = true }: { company: CompanyDocumentData; fixed?: boolean }) {
+  return <View style={styles.footer} fixed={fixed}><Text>{company.name}</Text><Text render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} /></View>;
 }
 
 function PdfBlock({ title, value }: { title: string; value: string }) {
