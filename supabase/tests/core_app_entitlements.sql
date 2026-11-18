@@ -1,4 +1,4 @@
--- Run after 20261118133212_enable_core_app_entitlements.sql in a controlled
+-- Run after 20261118134322_enable_core_app_entitlements.sql in a controlled
 -- environment. Every record below is rolled back.
 begin;
 
