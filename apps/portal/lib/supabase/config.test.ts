@@ -3,11 +3,7 @@ import { readFileSync } from "node:fs";
 import { applicationUrls, supabaseCookieOptions } from "./config";
 
 const originalDomain = process.env.NEXT_PUBLIC_SUPABASE_COOKIE_DOMAIN;
-const applicationVariables = [
-  "NEXT_PUBLIC_ASEX_PORTAL_URL",
-  "NEXT_PUBLIC_PRECIFICA_URL",
-  "NEXT_PUBLIC_PROPOSTA_URL",
-] as const;
+const applicationVariables = ["NEXT_PUBLIC_ASEX_PORTAL_URL"] as const;
 const originalApplicationVariables = Object.fromEntries(
   applicationVariables.map((name) => [name, process.env[name]]),
 );
@@ -45,20 +41,20 @@ describe("supabaseCookieOptions", () => {
 });
 
 describe("application navigation", () => {
-  it("uses the current production URL for PRECIFICA+ if Vercel omits its variable", () => {
+  it("keeps product navigation on the Hub origin by default", () => {
     for (const name of applicationVariables) delete process.env[name];
 
     expect(applicationUrls()).toMatchObject({
       portal: "https://asex-business-hub.vercel.app",
-      precifica: "https://asex-precifica-plus.vercel.app",
-      proposta: "https://asex-proposta-plus.vercel.app",
+      precifica: "https://asex-business-hub.vercel.app/precifica",
+      proposta: "https://asex-business-hub.vercel.app/proposta",
     });
   });
 
-  it("allows an environment variable to replace the deployment URL", () => {
-    process.env.NEXT_PUBLIC_PRECIFICA_URL = "https://precifica.example.test";
+  it("derives product paths from the configured Hub origin", () => {
+    process.env.NEXT_PUBLIC_ASEX_PORTAL_URL = "https://hub.example.test";
 
-    expect(applicationUrls().precifica).toBe("https://precifica.example.test");
+    expect(applicationUrls().precifica).toBe("https://hub.example.test/precifica");
   });
 
   it("renders the active card as a normal link without a click handler", () => {

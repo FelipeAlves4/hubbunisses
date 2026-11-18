@@ -27,18 +27,15 @@ export function supabaseCookieOptions() {
 }
 
 export function applicationUrls() {
+  const portal =
+    process.env.NEXT_PUBLIC_ASEX_PORTAL_URL?.trim() ||
+    "https://asex-business-hub.vercel.app";
   return {
-    // Local development supplies localhost values in .env.local. Keeping
-    // deployed defaults here prevents a missing Vercel variable from sending
-    // a production user to a loopback URL that only exists on their device.
-    portal:
-      process.env.NEXT_PUBLIC_ASEX_PORTAL_URL?.trim() ||
-      "https://asex-business-hub.vercel.app",
-    precifica:
-      process.env.NEXT_PUBLIC_PRECIFICA_URL?.trim() ||
-      "https://asex-precifica-plus.vercel.app",
-    proposta:
-      process.env.NEXT_PUBLIC_PROPOSTA_URL?.trim() ||
-      "https://asex-proposta-plus.vercel.app",
+    // Product routes deliberately stay on the Hub origin. This gives the
+    // Portal a single Supabase SSR session without sharing a cookie through
+    // Vercel's public parent domain.
+    portal,
+    precifica: new URL("/precifica", portal).toString(),
+    proposta: new URL("/proposta", portal).toString(),
   };
 }

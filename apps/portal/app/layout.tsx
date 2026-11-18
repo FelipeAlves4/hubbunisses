@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "@asex/ui/styles.css";
 import "./portal.css";
 import "./auth.css";
+import "../../precifica-plus/app/precifica.css";
+import "../../proposta-plus/app/proposta.css";
 export const metadata: Metadata = {
   title: "ASEX Business",
   description: "Portal de ferramentas empresariais",
