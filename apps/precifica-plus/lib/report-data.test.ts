@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { createElement } from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { describe, expect, it } from "vitest";
@@ -7,7 +9,12 @@ import {
   calculateServicePrice,
 } from "@asex/pricing";
 import { buildPricingReportData, getRates } from "./report-data";
-import { PricingReport } from "./pricing-report";
+import {
+  PricingReport,
+  PRICING_REPORT_FOOTER_NOTICE,
+} from "./pricing-report";
+
+const pdfReportOutputDirectory = process.env.PDF_REPORT_OUTPUT_DIR;
 
 const product = {
   name: "Café",
@@ -22,7 +29,7 @@ const product = {
   desiredMarginRate: 0.2,
 };
 const service = {
-  name: "Instalação",
+  name: "Instalação elétrica",
   estimatedHours: 8,
   hourlyCost: 50,
   professionalCount: 2,
@@ -88,7 +95,38 @@ describe("pricing report data", () => {
     const document = await renderToBuffer(
       createElement(PricingReport, { data }) as never,
     );
+    if (pdfReportOutputDirectory) {
+      await mkdir(pdfReportOutputDirectory, { recursive: true });
+      await writeFile(join(pdfReportOutputDirectory, "produto.pdf"), document);
+    }
     expect(document.subarray(0, 4).toString()).toBe("%PDF");
     expect(document.byteLength).toBeGreaterThan(1_000);
+  });
+
+  it("renders a professional PDF for an electrical installation service", async () => {
+    const result = calculateServicePrice(service);
+    const data = buildPricingReportData({
+      referenceName: "Instalação elétrica residencial",
+      kind: "service",
+      input: service,
+      result,
+      scenarios: {},
+      company: { legalName: "ASEX Serviços" },
+    });
+    const document = await renderToBuffer(
+      createElement(PricingReport, { data }) as never,
+    );
+    if (pdfReportOutputDirectory) {
+      await mkdir(pdfReportOutputDirectory, { recursive: true });
+      await writeFile(join(pdfReportOutputDirectory, "servico-instalacao-eletrica.pdf"), document);
+    }
+    expect(document.subarray(0, 4).toString()).toBe("%PDF");
+    expect(document.byteLength).toBeGreaterThan(1_000);
+  });
+
+  it("uses the required discreet warning in the report footer", () => {
+    expect(PRICING_REPORT_FOOTER_NOTICE).toBe(
+      "Valores estimados com base nas informações fornecidas. Confira custos e tributos antes de definir o preço final.",
+    );
   });
 });

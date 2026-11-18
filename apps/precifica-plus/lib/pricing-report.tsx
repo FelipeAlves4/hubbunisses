@@ -25,9 +25,15 @@ const date = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "long",
   timeStyle: "short",
 });
+
+export const PRICING_REPORT_FOOTER_NOTICE =
+  "Valores estimados com base nas informações fornecidas. Confira custos e tributos antes de definir o preço final.";
+
 const styles = StyleSheet.create({
   page: {
-    padding: 38,
+    paddingTop: 38,
+    paddingHorizontal: 38,
+    paddingBottom: 62,
     color: "#22232a",
     fontFamily: "Helvetica",
     fontSize: 9,
@@ -47,7 +53,12 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     letterSpacing: 1.4,
   },
-  title: { fontSize: 22, fontFamily: "Helvetica-Bold", marginTop: 5 },
+  title: {
+    fontSize: 22,
+    fontFamily: "Helvetica-Bold",
+    marginTop: 5,
+    marginBottom: 6,
+  },
   muted: { color: "#666b75" },
   logo: { width: 44, height: 44, objectFit: "contain" },
   section: { marginTop: 15 },
@@ -90,14 +101,6 @@ const styles = StyleSheet.create({
     padding: 6,
     fontFamily: "Helvetica-Bold",
   },
-  notice: {
-    backgroundColor: "#fff8eb",
-    borderLeftWidth: 3,
-    borderLeftColor: "#d97706",
-    padding: 8,
-    marginTop: 14,
-    color: "#74500f",
-  },
   footer: {
     position: "absolute",
     left: 38,
@@ -106,11 +109,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#e5e5e7",
     paddingTop: 7,
-    flexDirection: "row",
-    justifyContent: "space-between",
     color: "#737680",
     fontSize: 7,
   },
+  footerContent: { width: 410 },
+  footerBrand: { fontFamily: "Helvetica-Bold", marginBottom: 2 },
+  footerPageNumber: { position: "absolute", right: 0, top: 7 },
 });
 
 function Metric({
@@ -267,25 +271,15 @@ export function PricingReport({ data }: { data: PricingReportData }) {
             ) : null}
           </View>
         ) : null}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Metodologia e limites</Text>
-          <Text>
-            Preço sugerido = custo total ÷ (1 - tributos - comissões - taxas de
-            pagamento - margem desejada). A margem é calculada sobre a receita;
-            markup relaciona preço e custo. Este relatório é uma estimativa
-            baseada exclusivamente nos custos, percentuais e premissas
-            informados e não substitui orientação contábil ou tributária.
-          </Text>
-        </View>
-        <View style={styles.notice}>
-          <Text>
-            Resultados estimados: revise custos, taxas e regras fiscais antes de
-            utilizar esta referência em uma negociação.
-          </Text>
-        </View>
         <View fixed style={styles.footer}>
-          <Text>PRECIFICA+ · Relatório gerado localmente</Text>
+          <View style={styles.footerContent}>
+            <Text style={styles.footerBrand}>
+              PRECIFICA+ · Relatório gerado localmente
+            </Text>
+            <Text>{PRICING_REPORT_FOOTER_NOTICE}</Text>
+          </View>
           <Text
+            style={styles.footerPageNumber}
             render={({ pageNumber, totalPages }) =>
               `Página ${pageNumber} de ${totalPages}`
             }
