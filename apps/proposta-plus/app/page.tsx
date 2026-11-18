@@ -15,6 +15,16 @@ import {
   Settings,
   Users,
 } from "lucide-react";
+import { ProposalDocumentActions } from "../components/proposal-document-actions";
+import {
+  ProposalDocumentPreview,
+  TemplatePicker,
+} from "../components/proposal-document-preview";
+import type {
+  OrganizationDocumentFallback,
+  ProposalDocumentData,
+  ProposalTemplate,
+} from "../lib/proposal-document";
 import {
   calculateProposalTotals,
   formatCurrency,
@@ -29,6 +39,7 @@ type Section =
   | "clients"
   | "catalog"
   | "editor"
+  | "document"
   | "settings";
 type Client = {
   id: string;
@@ -54,6 +65,7 @@ type Proposal = {
   status: ProposalStatus;
   grand_total: number;
   issued_at: string;
+  template: ProposalTemplate;
   proposal_clients: { name: string } | null;
 };
 type ProposalStatus =
@@ -93,6 +105,12 @@ export default function PropostaPage() {
   const [section, setSection] = useState<Section>("overview");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [organizationName, setOrganizationName] = useState("Sua organização");
+  const [organizationDocument, setOrganizationDocument] =
+    useState<OrganizationDocumentFallback>({
+      name: "Sua organização",
+      phone: null,
+      logoUrl: null,
+    });
   const [clients, setClients] = useState<Client[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -124,6 +142,16 @@ export default function PropostaPage() {
   const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
   const [additionalTotal, setAdditionalTotal] = useState("0");
   const [taxRate, setTaxRate] = useState("0");
+  const [proposalDescription, setProposalDescription] = useState("");
+  const [deliveryTerms, setDeliveryTerms] = useState("");
+  const [proposalNotes, setProposalNotes] = useState("");
+  const [proposalTemplate, setProposalTemplate] =
+    useState<ProposalTemplate>("executive");
+  const [documentProposal, setDocumentProposal] =
+    useState<ProposalDocumentData | null>(null);
+  const [documentTemplate, setDocumentTemplate] =
+    useState<ProposalTemplate>("executive");
+  const [documentLoading, setDocumentLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -146,7 +174,7 @@ export default function PropostaPage() {
       }
       const { data: membership, error: membershipError } = await supabase
         .from("organization_members")
-        .select("organization_id, organizations(name)")
+        .select("organization_id, organizations(name, phone, logo_url)")
         .eq("user_id", userId)
         .limit(1)
         .maybeSingle();
@@ -156,9 +184,16 @@ export default function PropostaPage() {
       }
       const org = membership.organizations as unknown as {
         name: string;
+        phone: string | null;
+        logo_url: string | null;
       } | null;
       setOrganizationId(membership.organization_id);
       setOrganizationName(org?.name ?? "Sua organização");
+      setOrganizationDocument({
+        name: org?.name ?? "Sua organização",
+        phone: org?.phone ?? null,
+        logoUrl: org?.logo_url ?? null,
+      });
       const [clientResult, catalogResult, proposalResult] = await Promise.all([
         supabase
           .from("proposal_clients")
@@ -171,7 +206,7 @@ export default function PropostaPage() {
         supabase
           .from("proposals")
           .select(
-            "id, number, title, status, grand_total, issued_at, proposal_clients(name)",
+            "id, number, title, status, grand_total, issued_at, template, proposal_clients(name)",
           )
           .order("updated_at", { ascending: false })
           .limit(8),
@@ -365,6 +400,47 @@ export default function PropostaPage() {
       ),
     );
   }
+  async function openDocument(proposal: Proposal) {
+    setDocumentLoading(true);
+    setError("");
+    const { data, error: requestError } = await createClient()
+      .from("proposals")
+      .select(
+        "id, number, title, description, issued_at, valid_until, payment_terms, delivery_terms, notes, template, subtotal, discount_total, additional_total, tax_rate, tax_total, grand_total, client_snapshot, company_snapshot, proposal_items(id, description, quantity, unit, unit_price, discount_amount, total, sort_order)",
+      )
+      .eq("id", proposal.id)
+      .single();
+    setDocumentLoading(false);
+    if (requestError || !data) {
+      setError(requestError?.message ?? "Não foi possível carregar o documento da proposta.");
+      return;
+    }
+    const document = data as unknown as ProposalDocumentData;
+    document.proposal_items = [...(document.proposal_items ?? [])].sort(
+      (a, b) => a.sort_order - b.sort_order,
+    );
+    setDocumentProposal(document);
+    setDocumentTemplate(document.template ?? "executive");
+    setSection("document");
+  }
+  async function changeDocumentTemplate(template: ProposalTemplate) {
+    if (!documentProposal || template === documentTemplate) return;
+    setDocumentTemplate(template);
+    const { error: requestError } = await createClient()
+      .from("proposals")
+      .update({ template })
+      .eq("id", documentProposal.id);
+    if (requestError) {
+      setDocumentTemplate(documentProposal.template);
+      setError(requestError.message);
+      return;
+    }
+    setDocumentProposal((current) =>
+      current ? { ...current, template } : current,
+    );
+    setNotice("Modelo do documento atualizado.");
+    void load();
+  }
   async function saveProposal() {
     if (
       !organizationId ||
@@ -396,10 +472,14 @@ export default function PropostaPage() {
         organization_id: organizationId,
         client_id: proposalClientId,
         title: proposalTitle.trim(),
+        description: proposalDescription.trim() || null,
         status: "draft",
         issued_at: new Date().toISOString().slice(0, 10),
         valid_until: validUntil || null,
         payment_terms: paymentTerms || null,
+        delivery_terms: deliveryTerms || null,
+        notes: proposalNotes || null,
+        template: proposalTemplate,
         additional_total: totals.additionalTotal,
         tax_rate: Number(taxRate) || 0,
       })
@@ -438,6 +518,10 @@ export default function PropostaPage() {
     setProposalTitle("");
     setValidUntil("");
     setPaymentTerms("");
+    setProposalDescription("");
+    setDeliveryTerms("");
+    setProposalNotes("");
+    setProposalTemplate("executive");
     setLines([emptyLine()]);
     setSection("proposals");
     void load();
@@ -761,6 +845,13 @@ export default function PropostaPage() {
                     )}
                   </td>
                   <td>
+                    <button
+                      className="text-button"
+                      onClick={() => void openDocument(proposal)}
+                      disabled={documentLoading}
+                    >
+                      Documento
+                    </button>
                     <select
                       aria-label={`Alterar status de ${proposal.title}`}
                       value={proposal.status}
@@ -794,6 +885,14 @@ export default function PropostaPage() {
             setValidUntil={setValidUntil}
             paymentTerms={paymentTerms}
             setPaymentTerms={setPaymentTerms}
+            proposalDescription={proposalDescription}
+            setProposalDescription={setProposalDescription}
+            deliveryTerms={deliveryTerms}
+            setDeliveryTerms={setDeliveryTerms}
+            proposalNotes={proposalNotes}
+            setProposalNotes={setProposalNotes}
+            proposalTemplate={proposalTemplate}
+            setProposalTemplate={setProposalTemplate}
             lines={lines}
             setLines={setLines}
             updateLine={updateLine}
@@ -805,6 +904,16 @@ export default function PropostaPage() {
             setTaxRate={setTaxRate}
             saving={saving}
             onSave={() => void saveProposal()}
+          />
+        ) : section === "document" && documentProposal ? (
+          <DocumentWorkspace
+            proposal={documentProposal}
+            fallback={organizationDocument}
+            template={documentTemplate}
+            onTemplateChange={(template) => void changeDocumentTemplate(template)}
+            onBack={() => setSection("proposals")}
+            onNotice={setNotice}
+            onError={setError}
           />
         ) : (
           <section className="setup-panel">
@@ -955,6 +1064,55 @@ function DataTable({
     </section>
   );
 }
+function DocumentWorkspace({
+  proposal,
+  fallback,
+  template,
+  onTemplateChange,
+  onBack,
+  onNotice,
+  onError,
+}: {
+  proposal: ProposalDocumentData;
+  fallback: OrganizationDocumentFallback;
+  template: ProposalTemplate;
+  onTemplateChange: (value: ProposalTemplate) => void;
+  onBack: () => void;
+  onNotice: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  return (
+    <section className="page document-workspace">
+      <header className="page-title document-page-title">
+        <div>
+          <button className="text-button" type="button" onClick={onBack}>
+            <ArrowLeft size={17} /> Voltar para propostas
+          </button>
+          <h1>Documento da proposta</h1>
+          <p>Prévia baseada exclusivamente nos dados persistidos da proposta.</p>
+        </div>
+        <ProposalDocumentActions
+          proposal={proposal}
+          fallback={fallback}
+          template={template}
+          onNotice={onNotice}
+          onError={onError}
+        />
+      </header>
+      <div className="document-layout">
+        <aside className="document-controls">
+          <span className="paper-eyebrow">Apresentação</span>
+          <h2>Escolha o modelo</h2>
+          <p>A troca altera a prévia e o arquivo exportado, sem modificar os totais ou os dados históricos.</p>
+          <TemplatePicker value={template} onChange={onTemplateChange} />
+        </aside>
+        <div className="document-preview-frame">
+          <ProposalDocumentPreview proposal={proposal} fallback={fallback} template={template} />
+        </div>
+      </div>
+    </section>
+  );
+}
 function Editor(props: {
   clients: Client[];
   catalog: CatalogItem[];
@@ -966,6 +1124,14 @@ function Editor(props: {
   setValidUntil: (value: string) => void;
   paymentTerms: string;
   setPaymentTerms: (value: string) => void;
+  proposalDescription: string;
+  setProposalDescription: (value: string) => void;
+  deliveryTerms: string;
+  setDeliveryTerms: (value: string) => void;
+  proposalNotes: string;
+  setProposalNotes: (value: string) => void;
+  proposalTemplate: ProposalTemplate;
+  setProposalTemplate: (value: ProposalTemplate) => void;
   lines: DraftLine[];
   setLines: React.Dispatch<React.SetStateAction<DraftLine[]>>;
   updateLine: (
@@ -993,6 +1159,14 @@ function Editor(props: {
     setValidUntil,
     paymentTerms,
     setPaymentTerms,
+    proposalDescription,
+    setProposalDescription,
+    deliveryTerms,
+    setDeliveryTerms,
+    proposalNotes,
+    setProposalNotes,
+    proposalTemplate,
+    setProposalTemplate,
     lines,
     setLines,
     updateLine,
@@ -1052,6 +1226,15 @@ function Editor(props: {
               </label>
             </div>
             <label>
+              Apresentação comercial
+              <textarea
+                className="resize-none"
+                value={proposalDescription}
+                onChange={(e) => setProposalDescription(e.target.value)}
+                placeholder="Contextualize a proposta para o cliente."
+              />
+            </label>
+            <label>
               Condições comerciais
               <textarea
                 className="resize-none"
@@ -1060,6 +1243,28 @@ function Editor(props: {
                 placeholder="Pagamento, prazo de entrega, garantia e observações."
               />
             </label>
+            <label>
+              Condições de entrega
+              <textarea
+                className="resize-none"
+                value={deliveryTerms}
+                onChange={(e) => setDeliveryTerms(e.target.value)}
+                placeholder="Prazos, local e condições de entrega."
+              />
+            </label>
+            <label>
+              Observações
+              <textarea
+                className="resize-none"
+                value={proposalNotes}
+                onChange={(e) => setProposalNotes(e.target.value)}
+                placeholder="Informações complementares desta proposta."
+              />
+            </label>
+            <div className="editor-template-field">
+              <span>Modelo do documento</span>
+              <TemplatePicker value={proposalTemplate} onChange={setProposalTemplate} />
+            </div>
           </section>
           <section className="form-panel">
             <div className="section-line">
