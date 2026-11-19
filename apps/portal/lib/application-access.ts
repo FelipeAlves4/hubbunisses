@@ -5,8 +5,9 @@ import { createClient } from "./supabase/server";
 export type ApplicationKey =
   | "precifica-plus"
   | "proposta-plus"
-  | "nexo-finance";
-export type ApplicationPath = "/precifica" | "/proposta" | "/financeiro";
+  | "nexo-finance"
+  | "clienta-plus";
+export type ApplicationPath = "/precifica" | "/proposta" | "/financeiro" | "/clientes";
 
 export class ApplicationAccessError extends Error {}
 

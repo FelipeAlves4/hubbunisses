@@ -2,6 +2,7 @@ import {
   ArrowUpRight,
   Calculator,
   ChartNoAxesCombined,
+  ContactRound,
   FileText,
   Settings2,
 } from "lucide-react";
@@ -33,9 +34,16 @@ const applications = [
     appKey: "nexo-finance",
     urlKey: "financeiro",
   },
+  {
+    name: "CLIENTA+",
+    description: "Organize clientes, oportunidades e próximos passos comerciais.",
+    icon: ContactRound,
+    appKey: "clienta-plus",
+    urlKey: "clientes",
+  },
 ] as const;
 
-type AppKey = "precifica-plus" | "proposta-plus" | "nexo-finance";
+type AppKey = "precifica-plus" | "proposta-plus" | "nexo-finance" | "clienta-plus";
 type PortalIdentity = {
   organizationName?: string;
   initials?: string;
