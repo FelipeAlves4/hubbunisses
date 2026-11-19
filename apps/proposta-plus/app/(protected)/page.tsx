@@ -1065,9 +1065,10 @@ function DataTable({
   children: React.ReactNode;
 }) {
   const hasItems = Array.isArray(children) && children.length > 0;
+  const tableLabel = `${headers.join(", ")}. Deslize horizontalmente para ver todas as colunas.`;
   return (
     <section className="table-panel">
-      <div className="table-scroll">
+      <div className="table-scroll" tabIndex={0} role="region" aria-label={tableLabel}>
         <table>
           <thead>
             <tr>

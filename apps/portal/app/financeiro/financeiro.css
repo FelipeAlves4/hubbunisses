@@ -23,3 +23,17 @@
 @media (max-width:1120px) { .finance-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 @media (max-width:760px) { .finance-header,.finance-intro { align-items:flex-start; flex-direction:column; }.finance-header { padding:16px 20px; }.finance-header-actions { width:100%; }.finance-header-actions .finance-button { flex:1; }.finance-page { padding:28px 16px; }.finance-period { width:100%; }.finance-period label { flex:1; }.finance-period input { width:100%; }.finance-metrics { grid-template-columns:1fr 1fr; }.finance-metric { min-height:135px; padding:15px; }.finance-metric:last-child { grid-column:1/-1; }.finance-section-heading { align-items:start; flex-direction:column; }.finance-filters { display:grid; grid-template-columns:1fr; }.finance-filters select { min-width:0; }.finance-form-grid,.finance-category-form { grid-template-columns:1fr; }.finance-field-wide { grid-column:auto; }.finance-entry-dialog { padding:20px; }.finance-dialog-actions { flex-wrap:wrap; }.finance-dialog-actions .finance-button { flex:1; }.finance-realization-note { margin:0; }.finance-category-form .finance-button { width:100%; } }
 @media (max-width:420px) { .finance-header-actions { display:grid; grid-template-columns:1fr; }.finance-metrics { grid-template-columns:1fr; }.finance-metric:last-child { grid-column:auto; }.finance-brand { font-size:16px; } }
+
+/* Keep small-screen input, dialog and long-currency states inside the visual viewport. */
+.finance-header-actions,.finance-dialog-actions,.finance-row-actions { min-width:0; }
+.finance-button { min-height:44px; }
+.finance-metric { min-width:0; }
+.finance-metric strong { overflow-wrap:anywhere; white-space:normal; }
+.finance-overlay { align-items:center; justify-items:center; overscroll-behavior:contain; padding:max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
+.finance-dialog { max-height:calc(100dvh - 24px); overflow-y:auto; overscroll-behavior:contain; }
+.finance-segmented button { min-height:40px; }
+.finance-category-list li { min-width:0; }
+.finance-category-list li > span { min-width:0; overflow-wrap:anywhere; }
+.finance-category-list small { flex:0 1 auto; text-align:right; }
+.finance-row-actions button,.finance-dialog-head > button { width:44px; height:44px; }
+@media (max-width:420px) { .finance-period { align-items:stretch; flex-direction:column; }.finance-period label { width:100%; } }

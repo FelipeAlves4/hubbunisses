@@ -191,3 +191,7 @@
     flex-direction: column;
   }
 }
+@media (max-width: 360px) {
+  .auth-shell { padding: 16px; }
+  .auth-card { padding: 24px 18px; }
+}

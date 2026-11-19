@@ -816,6 +816,8 @@
     gap: 3px;
   }
   .pricing-rail nav button {
+    min-width: 44px;
+    min-height: 44px;
     padding: 9px;
     font-size: 0;
   }
@@ -1053,3 +1055,19 @@
   .auth-card,
   .access-card { border-radius: 14px; }
 }
+
+/* The desktop rail remains visible near tablet widths, so collapse the calculator before its columns collide. */
+@media (max-width: 1120px) {
+  .calculator-grid { grid-template-columns: 1fr; }
+}
+.result-list dt,
+.composition li span { min-width: 0; overflow-wrap: anywhere; }
+.result-list dd,
+.composition li strong { flex: 0 0 auto; }
+@media (max-height: 560px) {
+  .unsaved-bar { max-height: calc(100dvh - 28px); overflow-y: auto; }
+}
+.row-actions button,
+.card-actions button,
+.delete-confirm button,
+.unsaved-bar button { min-height:44px; }
