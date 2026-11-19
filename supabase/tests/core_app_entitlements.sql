@@ -1,4 +1,4 @@
--- Run after 20261119125258_enable_nexo_finance_for_all_organizations.sql in a controlled
+-- Run after 20261119131230_enable_nexo_finance_for_all_organizations.sql in a controlled
 -- environment. Every record below is rolled back.
 begin;
 

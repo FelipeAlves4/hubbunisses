@@ -1,4 +1,4 @@
--- Run after 20261119125258_enable_nexo_finance_for_all_organizations.sql
+-- Run after 20261119131230_enable_nexo_finance_for_all_organizations.sql
 -- against a disposable Supabase database.
 -- The whole fixture is rolled back: no user, organization, entitlement or finance data persists.
 begin;
