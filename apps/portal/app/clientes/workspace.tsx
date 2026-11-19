@@ -24,6 +24,7 @@ import {
   saveClientAction,
   saveOpportunityAction,
 } from "./actions";
+import { formatDocumentNumber, normalizeDocumentNumber } from "./client-input";
 import { getCRMIndicators } from "./crm";
 
 export type Client = {
@@ -950,6 +951,8 @@ function ClientForm({
   onSave: (input: Parameters<typeof saveClientAction>[0]) => void;
 }) {
   const [type, setType] = useState<"individual" | "company">("company");
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [documentError, setDocumentError] = useState("");
   return (
     <div className="modal-backdrop" role="presentation">
       <section
@@ -972,13 +975,20 @@ function ClientForm({
           onSubmit={(event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
+            try {
+              normalizeDocumentNumber(documentNumber, type);
+              setDocumentError("");
+            } catch (error) {
+              setDocumentError(error instanceof Error ? error.message : "Documento inválido.");
+              return;
+            }
             onSave({
               name: String(form.get("name") || ""),
               type,
               contactName: String(form.get("contactName") || ""),
               email: String(form.get("email") || ""),
               phone: String(form.get("phone") || ""),
-              documentNumber: String(form.get("documentNumber") || ""),
+              documentNumber,
               address: String(form.get("address") || ""),
               notes: String(form.get("notes") || ""),
             });
@@ -992,7 +1002,11 @@ function ClientForm({
             Tipo
             <select
               value={type}
-              onChange={(event) => setType(event.target.value as typeof type)}
+              onChange={(event) => {
+                setType(event.target.value as typeof type);
+                setDocumentNumber("");
+                setDocumentError("");
+              }}
             >
               <option value="company">Pessoa jurídica</option>
               <option value="individual">Pessoa física</option>
@@ -1011,8 +1025,20 @@ function ClientForm({
             <input name="phone" inputMode="tel" />
           </label>
           <label>
-            Documento
-            <input name="documentNumber" />
+            {type === "individual" ? "CPF (opcional)" : "CNPJ (opcional)"}
+            <input
+              aria-invalid={Boolean(documentError)}
+              aria-describedby={documentError ? "client-document-error" : undefined}
+              inputMode="numeric"
+              name="documentNumber"
+              onChange={(event) => {
+                setDocumentNumber(formatDocumentNumber(event.target.value, type));
+                setDocumentError("");
+              }}
+              placeholder={type === "individual" ? "000.000.000-00" : "00.000.000/0000-00"}
+              value={documentNumber}
+            />
+            {documentError ? <small className="clienta-error" id="client-document-error">{documentError}</small> : null}
           </label>
           <label className="full">
             Endereço

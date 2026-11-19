@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { ApplicationAccessError, getApplicationAccess } from "../../lib/application-access";
 import { createClient } from "../../lib/supabase/server";
+import { toClientValues, type ClientInput } from "./client-input";
 
 type Result = { ok: true; message: string } | { ok: false; message: string };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -10,7 +11,7 @@ const stages = ["new_lead", "contact_started", "qualification", "proposal_sent",
 const priorities = ["low", "medium", "high"] as const;
 const activityTypes = ["call", "whatsapp", "email", "meeting", "note", "follow_up"] as const;
 
-export type ClientInput = { id?: string; name: string; type: "individual" | "company"; contactName?: string; email?: string; phone?: string; documentNumber?: string; address?: string; notes?: string };
+export type { ClientInput } from "./client-input";
 export type OpportunityInput = { id?: string; clientId: string; title: string; description?: string; estimatedValueCents: number; stage: (typeof stages)[number]; priority: (typeof priorities)[number]; expectedCloseDate?: string | null; nextContactDate?: string | null };
 export type ActivityInput = { opportunityId: string; activityType: (typeof activityTypes)[number]; body?: string; dueDate?: string | null };
 
@@ -34,10 +35,7 @@ export async function saveClientAction(input: ClientInput): Promise<Result> {
     const { organizationId, userId } = await getApplicationAccess("clienta-plus");
     if (input.id && !UUID.test(input.id)) throw new Error("Cliente inválido.");
     if (input.type !== "individual" && input.type !== "company") throw new Error("Tipo de cliente inválido.");
-    const name = text(input.name, 180, "Nome", 2)!;
-    const email = text(input.email, 254, "E-mail");
-    if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Informe um e-mail válido.");
-    const values = { name, type: input.type, contact_name: text(input.contactName, 160, "Contato", 2), email, phone: text(input.phone, 40, "Telefone"), document_number: text(input.documentNumber, 32, "Documento", 5), address: text(input.address, 1200, "Endereço"), notes: text(input.notes, 4000, "Observações") };
+    const values = toClientValues(input);
     const supabase = await createClient();
     if (input.id) {
       const { data, error } = await supabase.from("proposal_clients").update(values).eq("id", input.id).eq("organization_id", organizationId).select("id").maybeSingle();
