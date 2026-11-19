@@ -1,4 +1,4 @@
--- Run after 20261118134322_enable_core_app_entitlements.sql in a controlled
+-- Run after 20261119131230_enable_nexo_finance_for_all_organizations.sql in a controlled
 -- environment. Every record below is rolled back.
 begin;
 
@@ -41,15 +41,15 @@ begin
   if (select count(*) from public.app_entitlements where organization_id = other_organization_id and app_key in ('precifica-plus', 'proposta-plus') and enabled) <> 2 then
     raise exception 'core entitlements were not enabled for organization B';
   end if;
-  if exists (select 1 from public.app_entitlements where app_key = 'nexo-finance' and organization_id in (target_organization_id, other_organization_id)) then
-    raise exception 'NEXO Finance was granted unexpectedly';
+  if (select count(*) from public.app_entitlements where organization_id in (target_organization_id, other_organization_id) and app_key = 'nexo-finance' and enabled) <> 2 then
+    raise exception 'NEXO Finance was not granted to existing organizations';
   end if;
 
   perform set_config('request.jwt.claim.sub', owner_id::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
   set local role authenticated;
-  if (select count(*) from public.app_entitlements where organization_id = target_organization_id and enabled) <> 2 then
-    raise exception 'owner cannot read own core entitlements';
+  if (select count(*) from public.app_entitlements where organization_id = target_organization_id and enabled) <> 3 then
+    raise exception 'owner cannot read all enabled entitlements';
   end if;
   begin
     update public.app_entitlements
@@ -62,13 +62,23 @@ begin
 
   select (public.create_organization('TESTE Entitlements Futura')).id
   into future_organization_id;
-  if (select count(*) from public.app_entitlements where organization_id = future_organization_id and app_key in ('precifica-plus', 'proposta-plus') and enabled) <> 2 then
-    raise exception 'new organization did not receive both core entitlements';
-  end if;
-  if exists (select 1 from public.app_entitlements where organization_id = future_organization_id and app_key = 'nexo-finance') then
-    raise exception 'new organization received NEXO Finance unexpectedly';
+  if (select count(*) from public.app_entitlements where organization_id = future_organization_id and app_key in ('precifica-plus', 'proposta-plus', 'nexo-finance') and enabled) <> 3 then
+    raise exception 'new organization did not receive all core entitlements';
   end if;
   reset role;
+
+  -- The backfill is intentionally idempotent: never overwrite a local
+  -- revocation when the migration or provisioning is evaluated again.
+  update public.app_entitlements
+  set enabled = false
+  where organization_id = target_organization_id
+    and app_key = 'nexo-finance';
+  insert into public.app_entitlements (organization_id, app_key, enabled, expires_at)
+  values (target_organization_id, 'nexo-finance', true, null)
+  on conflict (organization_id, app_key) do nothing;
+  if (select enabled from public.app_entitlements where organization_id = target_organization_id and app_key = 'nexo-finance') then
+    raise exception 'explicit NEXO Finance revocation was overwritten';
+  end if;
 
   perform set_config('request.jwt.claim.sub', other_user_id::text, true);
   set local role authenticated;
