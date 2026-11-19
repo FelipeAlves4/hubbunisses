@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useRef, useState, useTransition } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createCategoryAction, deleteTransactionAction, saveTransactionAction } from "./actions";
 import {
   calculateDashboard,
@@ -118,6 +118,18 @@ export function FinanceWorkspace({ configured, categories, transactions }: Finan
   );
   const availableCategories = categories.filter((category) => categoryFitsType(category, draft.entryType));
 
+  useEffect(() => {
+    if (!showForm && !showCategories && !toDelete) return;
+    function closeWithEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (showForm) setShowForm(false);
+      else if (showCategories) setShowCategories(false);
+      else setToDelete(null);
+    }
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [showCategories, showForm, toDelete]);
+
   function openNew() {
     setDraft(newDraft(categories));
     setEditing(false);
@@ -209,10 +221,10 @@ export function FinanceWorkspace({ configured, categories, transactions }: Finan
         </a>
         <div className="finance-header-actions">
           <button className="finance-button finance-button-quiet" type="button" onClick={() => setShowCategories(true)}>
-            <ReceiptText size={18} /> Categorias
+            <ReceiptText size={18} /> <span>Categorias</span>
           </button>
           <button className="finance-button finance-button-primary" type="button" onClick={openNew}>
-            <Plus size={18} /> Nova movimentação
+            <Plus size={18} /> <span>Nova movimentação</span>
           </button>
         </div>
       </header>
@@ -235,9 +247,9 @@ export function FinanceWorkspace({ configured, categories, transactions }: Finan
         {notice ? <p className="finance-toast" role="status">{notice}<button type="button" onClick={() => setNotice("")} aria-label="Fechar mensagem"><X size={15} /></button></p> : null}
 
         <section className="finance-metrics" aria-label="Resumo financeiro realizado e previsto">
+          <Metric icon={<WalletCards />} label="Saldo realizado" value={formatCurrency(dashboard.realizedBalanceCents)} note="Não é saldo bancário" tone="neutral" />
           <Metric icon={<ArrowUpRight />} label="Receita recebida" value={formatCurrency(dashboard.receivedCents)} note="Pagamentos no período" tone="positive" />
           <Metric icon={<ArrowDownRight />} label="Despesas pagas" value={formatCurrency(dashboard.paidCents)} note="Saídas confirmadas" tone="negative" />
-          <Metric icon={<WalletCards />} label="Saldo realizado" value={formatCurrency(dashboard.realizedBalanceCents)} note="Não é saldo bancário" tone="neutral" />
           <Metric icon={<CircleDollarSign />} label="Contas a receber" value={formatCurrency(dashboard.receivableCents)} note="Pendentes por vencimento" tone="forecast" />
           <Metric icon={<Landmark />} label="Contas a pagar" value={formatCurrency(dashboard.payableCents)} note="Pendentes por vencimento" tone="forecast" />
         </section>
@@ -252,17 +264,17 @@ export function FinanceWorkspace({ configured, categories, transactions }: Finan
             <label>Categoria<select value={filters.categoryId} onChange={(event) => setFilters((value) => ({ ...value, categoryId: event.target.value }))}><option value="all">Todas as categorias</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
             <label>Status<select value={filters.status} onChange={(event) => setFilters((value) => ({ ...value, status: event.target.value as FinanceFilters["status"] }))}><option value="all">Todos os status</option><option value="pending">Pendente</option><option value="paid">Pago</option><option value="overdue">Atrasado</option></select></label>
           </div>
-          <div className="finance-table-wrap">
+          <div className="finance-table-wrap" tabIndex={0} role="region" aria-label="Histórico de movimentações">
             <table>
               <thead><tr><th>Movimentação</th><th>Categoria</th><th>Vencimento</th><th>Status</th><th>Valor</th><th><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>{visibleTransactions.length ? visibleTransactions.map((transaction) => (
                 <tr key={transaction.id}>
-                  <td><strong>{transaction.description}</strong><small>Lançado em {new Intl.DateTimeFormat("pt-BR").format(new Date(`${transaction.issuedAt}T12:00:00`))}</small></td>
-                  <td>{transaction.categoryName}</td>
-                  <td>{new Intl.DateTimeFormat("pt-BR").format(new Date(`${transaction.dueDate}T12:00:00`))}</td>
-                  <td><span className={`finance-status finance-status-${isOverdue(transaction) ? "overdue" : transaction.status}`}>{statusLabel(transaction)}</span></td>
-                  <td className={transaction.entryType === "income" ? "finance-income" : "finance-expense"}>{transaction.entryType === "income" ? "+" : "−"}{formatCurrency(transaction.amountCents)}</td>
-                  <td><div className="finance-row-actions"><button type="button" onClick={() => openEdit(transaction)} aria-label={`Editar ${transaction.description}`}><Pencil size={16} /></button><button className="finance-delete" type="button" onClick={() => setToDelete(transaction)} aria-label={`Excluir ${transaction.description}`}><Trash2 size={16} /></button></div></td>
+                  <td data-label="Movimentação"><strong>{transaction.description}</strong><small>Lançado em {new Intl.DateTimeFormat("pt-BR").format(new Date(`${transaction.issuedAt}T12:00:00`))}</small></td>
+                  <td data-label="Categoria">{transaction.categoryName}</td>
+                  <td data-label="Vencimento">{new Intl.DateTimeFormat("pt-BR").format(new Date(`${transaction.dueDate}T12:00:00`))}</td>
+                  <td data-label="Status"><span className={`finance-status finance-status-${isOverdue(transaction) ? "overdue" : transaction.status}`}>{statusLabel(transaction)}</span></td>
+                  <td data-label="Valor" className={transaction.entryType === "income" ? "finance-income" : "finance-expense"}>{transaction.entryType === "income" ? "+" : "−"}{formatCurrency(transaction.amountCents)}</td>
+                  <td data-label="Ações"><div className="finance-row-actions"><button type="button" onClick={() => openEdit(transaction)} aria-label={`Editar ${transaction.description}`}><Pencil size={16} /></button><button className="finance-delete" type="button" onClick={() => setToDelete(transaction)} aria-label={`Excluir ${transaction.description}`}><Trash2 size={16} /></button></div></td>
                 </tr>
               )) : <tr><td className="finance-empty" colSpan={6}>Nenhuma movimentação corresponde aos filtros. Ajuste o período ou registre a primeira.</td></tr>}</tbody>
             </table>

@@ -782,6 +782,109 @@ td small {
   .identity-migration-note { margin-inline: 16px; }
 }
 
+.mobile-rail-bar,
+.mobile-nav-panel,
+.rail-secondary { display: contents; }
+.mobile-rail-actions,
+.mobile-hub-link,
+.mobile-nav-toggle { display: none; }
+
+/* On phones, the rail becomes a compact app bar and exposes navigation on demand. */
+@media (max-width: 820px) {
+  .proposta-rail {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: block;
+    min-width: 0;
+    padding: 0;
+    overflow: visible;
+  }
+  .mobile-rail-bar {
+    display: flex;
+    min-height: 60px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 12px;
+  }
+  .proposta-brand { font-size: 19px; }
+  .mobile-rail-actions { display: flex; align-items: center; gap: 8px; }
+  .mobile-hub-link,
+  .mobile-nav-toggle {
+    display: inline-flex;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid #294467;
+    border-radius: 9px;
+    background: transparent;
+    color: #dbeafe;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .mobile-nav-panel { display: none; }
+  .mobile-nav-panel.is-open {
+    position: absolute;
+    z-index: 1;
+    top: calc(100% + 8px);
+    right: 12px;
+    left: 12px;
+    display: grid;
+    gap: 12px;
+    border: 1px solid #294467;
+    border-radius: 12px;
+    background: var(--proposal-navy);
+    padding: 10px;
+    box-shadow: 0 16px 34px rgb(5 16 34 / .32);
+  }
+  .mobile-nav-panel nav {
+    display: grid;
+    width: auto;
+    min-width: 0;
+    overflow: visible;
+  }
+  .mobile-nav-panel .proposta-rail nav button,
+  .mobile-nav-panel nav button {
+    width: 100%;
+    min-height: 44px;
+    padding: 11px 12px;
+    white-space: normal;
+  }
+  .mobile-nav-panel nav button svg { display: block; }
+  .rail-secondary { display: grid; gap: 8px; }
+  .rail-secondary .back-link {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    border-top: 1px solid #294467;
+    border-radius: 0;
+    padding: 12px;
+    color: #dbeafe;
+    font-size: 14px;
+  }
+  .rail-secondary .local-auth-controls { margin: 0; }
+  .proposta-header {
+    height: 52px;
+    padding: 0 16px;
+  }
+  .proposta-header span,
+  .proposta-header .avatar { display: none; }
+  .proposta-header strong {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .local-auth-controls { display: grid; gap: 8px; }
 .local-auth-controls button {
   display: inline-flex;

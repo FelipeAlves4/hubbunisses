@@ -11,10 +11,12 @@ import {
   FileText,
   LayoutDashboard,
   LoaderCircle,
+  Menu,
   PackagePlus,
   Plus,
   Settings,
   Users,
+  X,
 } from "lucide-react";
 import { ProposalDocumentActions } from "../../components/proposal-document-actions";
 import { CompanyIdentitySettings } from "../../components/company-identity-settings";
@@ -110,6 +112,7 @@ const emptyLine = (): DraftLine => ({
 
 export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps) {
   const [section, setSection] = useState<Section>("overview");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [organizationRole, setOrganizationRole] = useState<"owner" | "member" | null>(null);
   const [organizationDefaultTemplate, setOrganizationDefaultTemplate] =
@@ -574,26 +577,50 @@ export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps)
   return (
     <main className="proposta-shell">
       <aside className="proposta-rail">
-        <a className="proposta-brand" href="#top">
-          PROPOSTA<span>+</span>
-        </a>
-        <nav aria-label="Navegação principal">
-          {nav.map(([id, label, Icon]) => (
+        <div className="mobile-rail-bar">
+          <a className="proposta-brand" href="#top">
+            PROPOSTA<span>+</span>
+          </a>
+          <div className="mobile-rail-actions">
+            <Link className="mobile-hub-link" href={hubHref} aria-label="Voltar ao ASEX Business Hub">
+              <ArrowLeft size={19} />
+            </Link>
             <button
-              key={id}
-              className={section === id ? "nav-current" : ""}
-              onClick={() => setSection(id)}
+              className="mobile-nav-toggle"
+              type="button"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="proposta-mobile-menu"
+              onClick={() => setMobileMenuOpen((open) => !open)}
             >
-              <Icon size={19} />
-              {label}
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              <span>{mobileMenuOpen ? "Fechar" : "Menu"}</span>
             </button>
-          ))}
-        </nav>
-        <Link className="back-link" href={hubHref}>
-          <ArrowLeft size={17} />
-          Voltar ao Hub
-        </Link>
-        {isSupabaseConfigured() ? <LocalAuthControls /> : null}
+          </div>
+        </div>
+        <div className={`mobile-nav-panel${mobileMenuOpen ? " is-open" : ""}`} id="proposta-mobile-menu">
+          <nav aria-label="Navegação principal">
+            {nav.map(([id, label, Icon]) => (
+              <button
+                key={id}
+                className={section === id ? "nav-current" : ""}
+                onClick={() => {
+                  setSection(id);
+                  setMobileMenuOpen(false);
+                }}
+              >
+                <Icon size={19} />
+                {label}
+              </button>
+            ))}
+          </nav>
+          <div className="rail-secondary">
+            <Link className="back-link" href={hubHref}>
+              <ArrowLeft size={17} />
+              Voltar ao Hub
+            </Link>
+            {isSupabaseConfigured() ? <LocalAuthControls /> : null}
+          </div>
+        </div>
       </aside>
       <section className="proposta-workspace" id="top">
         <header className="proposta-header">

@@ -1071,3 +1071,82 @@
 .card-actions button,
 .delete-confirm button,
 .unsaved-bar button { min-height:44px; }
+
+.pricing-mobile-bar,
+.pricing-mobile-menu { display: contents; }
+.pricing-mobile-toggle { display: none; }
+
+/* A compact menu replaces the icon-only horizontal navigation on phones. */
+@media (max-width: 700px) {
+  .pricing-rail {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: block;
+    padding: 0;
+    overflow: visible;
+  }
+  .pricing-mobile-bar {
+    display: flex;
+    min-height: 60px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 14px;
+  }
+  .pricing-brand { margin: 0; font-size: 19px; }
+  .pricing-mobile-toggle {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    border: 1px solid #414149;
+    border-radius: 9px;
+    background: transparent;
+    color: #f1f1f4;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    cursor: pointer;
+  }
+  .pricing-mobile-menu { display: none; }
+  .pricing-mobile-menu.is-open {
+    position: absolute;
+    z-index: 1;
+    top: calc(100% + 8px);
+    right: 14px;
+    left: 14px;
+    display: grid;
+    gap: 12px;
+    border: 1px solid #414149;
+    border-radius: 12px;
+    background: #17171c;
+    padding: 10px;
+    box-shadow: 0 16px 34px rgb(20 12 14 / .34);
+  }
+  .pricing-mobile-menu nav {
+    display: grid;
+    gap: 5px;
+  }
+  .pricing-mobile-menu .pricing-rail nav button,
+  .pricing-mobile-menu nav button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    justify-content: flex-start;
+    padding: 11px 12px;
+    color: #d8d8df;
+    font-size: 14px;
+  }
+  .pricing-mobile-menu nav button svg { width: 18px; height: 18px; }
+  .pricing-mobile-menu .local-notice {
+    display: flex;
+    margin: 0;
+  }
+  .pricing-mobile-menu .local-auth-controls { margin: 0; }
+  .pricing-content { padding: 24px 16px 42px; }
+}
+@media (min-width: 360px) and (max-width: 700px) {
+  .pricing-form .form-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
