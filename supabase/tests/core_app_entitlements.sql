@@ -48,8 +48,8 @@ begin
   perform set_config('request.jwt.claim.sub', owner_id::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
   set local role authenticated;
-  if (select count(*) from public.app_entitlements where organization_id = target_organization_id and enabled) <> 2 then
-    raise exception 'owner cannot read own core entitlements';
+  if (select count(*) from public.app_entitlements where organization_id = target_organization_id and enabled) <> 3 then
+    raise exception 'owner cannot read all enabled entitlements';
   end if;
   begin
     update public.app_entitlements
