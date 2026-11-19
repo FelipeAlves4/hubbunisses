@@ -41,6 +41,9 @@
   justify-content: space-between;
   gap: 24px;
 }
+.hub-header > * {
+  min-width: 0;
+}
 .hub-brand {
   display: flex;
   align-items: baseline;
@@ -380,4 +383,10 @@
   .hub-footer span + span {
     margin-top: 3px;
   }
+}
+@media (max-width: 360px) {
+  .hub-header { padding: 0 16px; }
+  .hub-brand { font-size: 18px; }
+  .hub-content { padding-inline: 16px; }
+  .application-card, .application-card:last-child { padding: 22px; }
 }

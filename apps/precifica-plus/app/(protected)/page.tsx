@@ -22,6 +22,7 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Menu,
   Package,
   Plus,
   ReceiptText,
@@ -33,6 +34,7 @@ import {
   Trash2,
   TrendingUp,
   Upload,
+  X,
 } from "lucide-react";
 import {
   calculatePricingScenarios,
@@ -579,6 +581,7 @@ export default function PrecificaPage({ hubHref = portalUrl }: PrecificaPageProp
   const [localImportCount, setLocalImportCount] = useState<number | null>(null);
   const [confirmLocalImport, setConfirmLocalImport] = useState(false);
   const [view, setView] = useState<View>("calculator");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [kind, setKind] = useState<SimulationKind>("product");
   const [product, setProduct] = useState(initialProduct);
   const [service, setService] = useState(initialService);
@@ -967,41 +970,55 @@ export default function PrecificaPage({ hubHref = portalUrl }: PrecificaPageProp
   return (
     <main className="pricing-shell">
       <aside className="pricing-rail" aria-label="Navegação do PRECIFICA+">
-        <Link className="pricing-brand" href={hubHref}>
-          PRECIFICA<span>+</span>
-        </Link>
-        <nav>
+        <div className="pricing-mobile-bar">
+          <Link className="pricing-brand" href={hubHref}>
+            PRECIFICA<span>+</span>
+          </Link>
           <button
-            className={view === "calculator" ? "current" : ""}
-            onClick={() => switchView("calculator")}
+            className="pricing-mobile-toggle"
+            type="button"
+            aria-expanded={mobileMenuOpen}
+            aria-controls="pricing-mobile-menu"
+            onClick={() => setMobileMenuOpen((open) => !open)}
           >
-            <Calculator size={18} />
-            Calculadora
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            <span>{mobileMenuOpen ? "Fechar" : "Menu"}</span>
           </button>
-          <button
-            className={view === "history" ? "current" : ""}
-            onClick={() => switchView("history")}
-          >
-            <History size={18} />
-            Minhas simulações
-          </button>
-          <button
-            className={view === "reports" ? "current" : ""}
-            onClick={() => switchView("reports")}
-          >
-            <Settings2 size={18} />
-            Dados para relatórios
-          </button>
-        </nav>
-        <p className="local-notice">
-          <ArchiveRestore size={15} />
-          {storageMode === "cloud"
-            ? " Suas simulações são sincronizadas com a organização atual."
-            : storageMode === "checking"
-              ? " Conectando à organização…"
-              : " Suas simulações estão salvas neste navegador. Elas ainda não são sincronizadas entre dispositivos."}
-        </p>
-        {isSupabaseConfigured() ? <LocalAuthControls /> : null}
+        </div>
+        <div className={`pricing-mobile-menu${mobileMenuOpen ? " is-open" : ""}`} id="pricing-mobile-menu">
+          <nav>
+            <button
+              className={view === "calculator" ? "current" : ""}
+              onClick={() => { switchView("calculator"); setMobileMenuOpen(false); }}
+            >
+              <Calculator size={18} />
+              Calculadora
+            </button>
+            <button
+              className={view === "history" ? "current" : ""}
+              onClick={() => { switchView("history"); setMobileMenuOpen(false); }}
+            >
+              <History size={18} />
+              Minhas simulações
+            </button>
+            <button
+              className={view === "reports" ? "current" : ""}
+              onClick={() => { switchView("reports"); setMobileMenuOpen(false); }}
+            >
+              <Settings2 size={18} />
+              Dados para relatórios
+            </button>
+          </nav>
+          <p className="local-notice">
+            <ArchiveRestore size={15} />
+            {storageMode === "cloud"
+              ? " Suas simulações são sincronizadas com a organização atual."
+              : storageMode === "checking"
+                ? " Conectando à organização…"
+                : " Suas simulações estão salvas neste navegador. Elas ainda não são sincronizadas entre dispositivos."}
+          </p>
+          {isSupabaseConfigured() ? <LocalAuthControls /> : null}
+        </div>
       </aside>
       <section className="pricing-content">
         {view === "calculator" ? (
