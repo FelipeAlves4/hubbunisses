@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -110,7 +111,11 @@ const emptyLine = (): DraftLine => ({
   discountAmount: 0,
 });
 
-export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps) {
+function PropostaWorkspace({ hubHref = portalUrl }: PropostaPageProps) {
+  const searchParams = useSearchParams();
+  const requestedClientId = searchParams.get("client_id");
+  const requestedOpportunityId = searchParams.get("opportunity_id");
+  const requestedProposalId = searchParams.get("proposal_id");
   const [section, setSection] = useState<Section>("overview");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
@@ -235,6 +240,23 @@ export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps)
       setCatalog((catalogResult.data ?? []) as CatalogItem[]);
       setProposals((proposalResult.data ?? []) as unknown as Proposal[]);
       if (
+        requestedProposalId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedProposalId)
+      ) {
+        const requestedProposal = ((proposalResult.data ?? []) as unknown as Proposal[]).find(
+          (proposal) => proposal.id === requestedProposalId,
+        );
+        if (requestedProposal) void openDocument(requestedProposal);
+      }
+      if (
+        requestedClientId &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedClientId) &&
+        (clientResult.data ?? []).some((client: Client) => client.id === requestedClientId)
+      ) {
+        setProposalClientId(requestedClientId);
+        setSection("editor");
+      }
+      if (
         documentSettingsResult.data?.default_template === "executive" ||
         documentSettingsResult.data?.default_template === "minimal" ||
         documentSettingsResult.data?.default_template === "commercial"
@@ -256,7 +278,7 @@ export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps)
   };
   useEffect(() => {
     void load();
-  }, []);
+  }, [requestedClientId, requestedProposalId]);
 
   const totals = useMemo(() => {
     try {
@@ -536,6 +558,23 @@ export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps)
         `A proposta foi criada, mas os itens não puderam ser gravados: ${itemError.message}`,
       );
       return;
+    }
+    if (
+      requestedOpportunityId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedOpportunityId)
+    ) {
+      const { error: linkError } = await supabase
+        .from("crm_opportunity_proposals")
+        .insert({
+          organization_id: organizationId,
+          opportunity_id: requestedOpportunityId,
+          proposal_id: proposal.id,
+        });
+      if (linkError) {
+        setSaving(false);
+        setError(`A proposta foi criada, mas não foi possível vinculá-la à oportunidade: ${linkError.message}`);
+        return;
+      }
     }
     setNotice("Proposta salva como rascunho.");
     setProposalClientId("");
@@ -983,6 +1022,14 @@ export default function PropostaPage({ hubHref = portalUrl }: PropostaPageProps)
         )}
       </section>
     </main>
+  );
+}
+
+export default function PropostaPage(props: PropostaPageProps) {
+  return (
+    <Suspense fallback={<main className="proposta-shell"><section className="setup-panel"><LoaderCircle className="spin" size={28} /><p>Carregando PROPOSTA+…</p></section></main>}>
+      <PropostaWorkspace {...props} />
+    </Suspense>
   );
 }
 
