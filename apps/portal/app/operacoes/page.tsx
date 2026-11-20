@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import Link from "next/link";
 import Form from "next/form";
-import { ArrowLeft, ClipboardList, Plus } from "lucide-react";
+import {
+  ArrowLeft, ArrowUpRight, CalendarDays, CircleCheck, ClipboardList,
+  Columns3, Gauge, Hourglass, ListFilter, Plus, Timer, UserRound,
+} from "lucide-react";
 import { createClient } from "../../lib/supabase/server";
 import { requireApplicationAccess, getOptionalApplicationAccess } from "../../lib/application-access";
 import { OperationForm, OrderForm, StatusForm, TaskForm } from "./forms";
@@ -25,13 +28,16 @@ type Filters = Record<string, string>;
 function OrderCard({ order, clients, members, today, children }: {
   order: Order; clients: Option[]; members: Option[]; today: string; children?: React.ReactNode;
 }) {
-  return <article className="opera-card">
+  return <article className="opera-card opera-order" data-status={order.status}>
     <span className="opera-code">{orderNumber(order.number)}</span>
-    <h3><Link href={detailHref(order.id)}>{order.title}</Link></h3>
+    <h3><Link href={detailHref(order.id)}>{order.title}<ArrowUpRight size={15} aria-hidden="true" /></Link></h3>
     <p>{name(clients, order.client_id)}</p>
-    <p>{name(members, order.responsible_user_id)} · {date(order.due_date)}</p>
+    <div className="opera-order-meta">
+      <span><UserRound size={14} aria-hidden="true" />{name(members, order.responsible_user_id)}</span>
+      <span><CalendarDays size={14} aria-hidden="true" />{date(order.due_date)}</span>
+    </div>
     <div className="opera-tags">
-      <span>{statuses[order.status]}</span><span>{priorities[order.priority]}</span>
+      <span className="opera-status">{statuses[order.status]}</span><span>{priorities[order.priority]}</span>
       {isLate(order, today) && <span className="opera-late">Atrasada</span>}
     </div>
     {children}
@@ -40,6 +46,7 @@ function OrderCard({ order, clients, members, today, children }: {
 
 function FilterBar({ filters, clients, members, view }: { filters: Filters; clients: Option[]; members: Option[]; view: string }) {
   return <Form className="opera-panel opera-filters" action={root}>
+    <div className="opera-filter-title"><ListFilter size={17} aria-hidden="true" /><h2>Filtros</h2></div>
     <input type="hidden" name="visao" value={view} />
     <label>Criação a partir de<input type="date" name="de" defaultValue={filters.de} /></label>
     <label>Criação até<input type="date" name="ate" defaultValue={filters.ate} /></label>
@@ -59,12 +66,14 @@ function FilterBar({ filters, clients, members, view }: { filters: Filters; clie
   </Form>;
 }
 
-function Dashboard({ orders, clients, members, today, soon }: { orders: Order[]; clients: Option[]; members: Option[]; today: string; soon: string }) {
+function Dashboard({ orders, clients, members, today, soon, filters }: {
+  orders: Order[]; clients: Option[]; members: Option[]; today: string; soon: string; filters: Filters;
+}) {
   const counts = [
-    ["Ordens abertas", orders.filter(isOpen).length],
-    ["Em andamento", orders.filter((o) => o.status === "in_progress").length],
-    ["Concluídas", orders.filter((o) => o.status === "completed").length],
-    ["Atrasadas", orders.filter((o) => isLate(o, today)).length],
+    ["Ordens abertas", orders.filter(isOpen).length, ClipboardList, "open"],
+    ["Em andamento", orders.filter((o) => o.status === "in_progress").length, Timer, "in_progress"],
+    ["Concluídas", orders.filter((o) => o.status === "completed").length, CircleCheck, "completed"],
+    ["Atrasadas", orders.filter((o) => isLate(o, today)).length, Hourglass, "late"],
   ] as const;
   const byOwner = new Map<string | null, number>();
   for (const order of orders) byOwner.set(order.responsible_user_id, (byOwner.get(order.responsible_user_id) ?? 0) + 1);
@@ -72,13 +81,20 @@ function Dashboard({ orders, clients, members, today, soon }: { orders: Order[];
     .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
   return <>
     <div className="opera-metrics">
-      {counts.map(([label, count]) => <div className="opera-card" key={label}><span>{label}</span><strong>{count}</strong></div>)}
+      {counts.map(([label, count, Icon, status]) => (
+        <div className="opera-card opera-metric" data-status={status} key={label}>
+          <Icon className="opera-metric-icon" size={19} aria-hidden="true" />
+          <strong>{count}</strong>
+          <span>{label}</span>
+        </div>
+      ))}
     </div>
+    <FilterBar view="painel" {...{ filters, clients, members }} />
     <div className="opera-grid">
       <section className="opera-panel"><h2>Distribuição por status</h2>
         <ul className="opera-summary">{Object.entries(statuses).map(([key, label]) => {
           const total = orders.filter((o) => o.status === key).length;
-          return <li key={key}><span>{label}</span><meter value={total} max={orders.length || 1} aria-label={label} /><b>{total}</b></li>;
+          return <li key={key} data-status={key}><span>{label}</span><meter value={total} max={orders.length || 1} aria-label={label} /><b>{total}</b></li>;
         })}</ul>
       </section>
       <section className="opera-panel"><h2>Ordens por responsável</h2>
@@ -247,12 +263,12 @@ export default async function OperaPage({ searchParams }: { searchParams: Promis
     };
     const orders = await collect<Order>((start, end) => orderQuery().order("created_at", { ascending: false }).order("id").range(start, end));
     const shared = { clients, members, today };
+    if (view === "painel") return <Dashboard {...{ orders, soon, filters, ...shared }} />;
     return <>
       <FilterBar {...{ filters, clients, members, view }} />
-      {view === "painel" ? <Dashboard orders={orders} soon={soon} {...shared} />
-        : view === "kanban" ? <div className="opera-board">{Object.entries(statuses).map(([key, label]) => {
+      {view === "kanban" ? <div className="opera-board">{Object.entries(statuses).map(([key, label]) => {
           const column = orders.filter((order) => order.status === key);
-          return <section className="opera-column" key={key}><h2>{label} <span>{column.length}</span></h2>
+          return <section className="opera-column" data-status={key} key={key}><h2>{label} <span>{column.length}</span></h2>
             {column.length ? column.map((order) => <OrderCard key={order.id} order={order} {...shared}>
               {canManage(order) && <StatusForm key={order.status} order={order} />}
             </OrderCard>) : <p>Nenhuma ordem nesta etapa.</p>}
@@ -270,14 +286,28 @@ export default async function OperaPage({ searchParams }: { searchParams: Promis
     workspace = <section className="opera-panel" role="alert"><h2>Os dados operacionais estão indisponíveis</h2><p>Verifique a configuração do OPERA+ e tente novamente.</p></section>;
   }
 
+  const views = [
+    ["painel", "Dashboard", Gauge],
+    ["ordens", "Ordens de serviço", ClipboardList],
+    ["kanban", "Kanban", Columns3],
+  ] as const;
+
   return <main className="opera-shell">
     <header className="opera-header">
-      <div><Link href="/" className="opera-back"><ArrowLeft size={17} /> Voltar ao Hub</Link><h1><ClipboardList aria-hidden="true" /> OPERA+</h1><p>Ordens de serviço, tarefas e entregas</p></div>
-      <Link className="opera-primary" href={root + "?visao=nova"}><Plus size={18} /> Nova ordem</Link>
+      <Link href="/" className="opera-back"><ArrowLeft size={16} aria-hidden="true" /> ASEX Business Hub</Link>
+      <div className="opera-hero">
+        <div>
+          <h1>OPERA<span>+</span></h1>
+          <p>Ordens de serviço, tarefas e entregas</p>
+        </div>
+        <Link className="opera-primary" href={root + "?visao=nova"}><Plus size={18} aria-hidden="true" /> Nova ordem</Link>
+      </div>
     </header>
     <nav className="opera-nav" aria-label="Navegação operacional">
-      {[["painel", "Dashboard"], ["ordens", "Ordens de serviço"], ["kanban", "Kanban"]].map(([key, label]) =>
-        <Link key={key} href={root + "?visao=" + key} aria-current={!orderId && !proposalId && view === key ? "page" : undefined}>{label}</Link>)}
+      {views.map(([key, label, Icon]) =>
+        <Link key={key} href={root + "?visao=" + key} aria-current={!orderId && !proposalId && view === key ? "page" : undefined}>
+          <Icon size={17} aria-hidden="true" />{label}
+        </Link>)}
     </nav>
     {workspace}
   </main>;
