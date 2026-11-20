@@ -6,14 +6,15 @@ export type ApplicationKey =
   | "precifica-plus"
   | "proposta-plus"
   | "nexo-finance"
-  | "clienta-plus";
-export type ApplicationPath = "/precifica" | "/proposta" | "/financeiro" | "/clientes";
+  | "clienta-plus"
+  | "opera-plus";
+export type ApplicationPath = "/precifica" | "/proposta" | "/financeiro" | "/clientes" | "/operacoes";
 
 export class ApplicationAccessError extends Error {}
 
 export async function getApplicationAccess(
   appKey: ApplicationKey,
-): Promise<{ organizationId: string; userId: string }> {
+): Promise<{ organizationId: string; userId: string; role: string }> {
   if (!isSupabaseConfigured()) {
     throw new ApplicationAccessError("O Supabase ainda não está configurado.");
   }
@@ -25,7 +26,7 @@ export async function getApplicationAccess(
 
   const { data: membership } = await supabase
     .from("organization_members")
-    .select("organization_id")
+    .select("organization_id, role")
     .eq("user_id", userId)
     .limit(1)
     .maybeSingle();
@@ -43,7 +44,16 @@ export async function getApplicationAccess(
       new Date(entitlement.expires_at).getTime() > Date.now());
   if (!allowed) throw new ApplicationAccessError("Acesso não autorizado.");
 
-  return { organizationId: membership.organization_id, userId };
+  return { organizationId: membership.organization_id, userId, role: membership.role };
+}
+
+export async function getOptionalApplicationAccess(appKey: ApplicationKey) {
+  try {
+    return await getApplicationAccess(appKey);
+  } catch (error) {
+    if (error instanceof ApplicationAccessError) return null;
+    throw error;
+  }
 }
 
 export async function requireApplicationAccess(

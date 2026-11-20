@@ -1,4 +1,4 @@
--- Run after 20261119131230_enable_nexo_finance_for_all_organizations.sql in a controlled
+-- Run after 20261119202123_enable_clienta_plus_for_all_organizations.sql in a controlled
 -- environment. Every record below is rolled back.
 begin;
 
@@ -9,6 +9,9 @@ declare
   target_organization_id uuid := 'aaaaaaaa-cccc-4aaa-8aaa-aaaaaaaaaaa1';
   other_organization_id uuid := 'bbbbbbbb-dddd-4bbb-8bbb-bbbbbbbbbbb2';
   future_organization_id uuid;
+  expected_apps constant public.app_key[] := array[
+    'clienta-plus', 'nexo-finance', 'precifica-plus', 'proposta-plus'
+  ]::public.app_key[];
 begin
   insert into auth.users (
     id, instance_id, aud, role, email, encrypted_password,
@@ -45,10 +48,16 @@ begin
     raise exception 'NEXO Finance was not granted to existing organizations';
   end if;
 
+  if (select count(*) from public.app_entitlements where organization_id in (target_organization_id, other_organization_id) and app_key = 'clienta-plus' and enabled and expires_at is null) <> 2 then
+    raise exception 'CLIENTA+ was not provisioned without expiration for both organizations';
+  end if;
+
   perform set_config('request.jwt.claim.sub', owner_id::text, true);
   perform set_config('request.jwt.claim.role', 'authenticated', true);
   set local role authenticated;
-  if (select count(*) from public.app_entitlements where organization_id = target_organization_id and enabled) <> 3 then
+  if (select array_agg(app_key order by app_key::text)
+      from public.app_entitlements where organization_id = target_organization_id and enabled and app_key = any(expected_apps))
+      is distinct from expected_apps then
     raise exception 'owner cannot read all enabled entitlements';
   end if;
   begin
@@ -62,7 +71,9 @@ begin
 
   select (public.create_organization('TESTE Entitlements Futura')).id
   into future_organization_id;
-  if (select count(*) from public.app_entitlements where organization_id = future_organization_id and app_key in ('precifica-plus', 'proposta-plus', 'nexo-finance') and enabled) <> 3 then
+  if (select array_agg(app_key order by app_key::text)
+      from public.app_entitlements where organization_id = future_organization_id and enabled and app_key = any(expected_apps))
+      is distinct from expected_apps then
     raise exception 'new organization did not receive all core entitlements';
   end if;
   reset role;

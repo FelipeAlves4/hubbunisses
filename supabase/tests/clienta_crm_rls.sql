@@ -17,7 +17,9 @@ insert into public.organization_members (organization_id, user_id, role) values
   ('cccccccc-cccc-4ccc-8ccc-ccccccccccc1', '55555555-5555-4555-8555-555555555555', 'member'),
   ('dddddddd-dddd-4ddd-8ddd-ddddddddddd2', '44444444-4444-4444-8444-444444444444', 'owner');
 insert into public.app_entitlements (organization_id, app_key, enabled) values
-  ('cccccccc-cccc-4ccc-8ccc-ccccccccccc1', 'clienta-plus', true);
+  ('cccccccc-cccc-4ccc-8ccc-ccccccccccc1', 'clienta-plus', true)
+on conflict (organization_id, app_key) do update
+set enabled = excluded.enabled, expires_at = null;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', true);

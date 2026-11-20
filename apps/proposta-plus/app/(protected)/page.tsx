@@ -50,6 +50,7 @@ type Section =
 type PropostaPageProps = {
   /** A relative destination makes the embedded Portal experience a client transition. */
   hubHref?: string;
+  operationsHref?: string;
 };
 type Client = {
   id: string;
@@ -111,7 +112,7 @@ const emptyLine = (): DraftLine => ({
   discountAmount: 0,
 });
 
-function PropostaWorkspace({ hubHref = portalUrl }: PropostaPageProps) {
+function PropostaWorkspace({ hubHref = portalUrl, operationsHref }: PropostaPageProps) {
   const searchParams = useSearchParams();
   const requestedClientId = searchParams.get("client_id");
   const requestedOpportunityId = searchParams.get("opportunity_id");
@@ -944,6 +945,11 @@ function PropostaWorkspace({ hubHref = portalUrl }: PropostaPageProps) {
                     >
                       Documento
                     </button>
+                    {operationsHref && proposal.status === "approved" && (
+                      <Link className="text-button" href={operationsHref + "?proposta=" + proposal.id}>
+                        Criar ordem de serviço
+                      </Link>
+                    )}
                     <select
                       aria-label={`Alterar status de ${proposal.title}`}
                       value={proposal.status}

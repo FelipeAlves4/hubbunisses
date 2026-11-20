@@ -10,7 +10,7 @@ describe("unified application routes", () => {
       '<PrecificaPage hubHref="/" />',
     );
     expect(source("../app/proposta/page.tsx")).toContain(
-      '<PropostaPage hubHref="/" />',
+      '<PropostaPage hubHref="/" operationsHref=',
     );
   });
 
@@ -35,6 +35,9 @@ describe("unified application routes", () => {
     );
     expect(source("../app/proposta/layout.tsx")).toContain(
       'requireApplicationAccess("proposta-plus", "/proposta")',
+    );
+    expect(source("../app/operacoes/layout.tsx")).toContain(
+      'requireApplicationAccess("opera-plus", "/operacoes")',
     );
     const guard = source("./application-access.ts");
     expect(guard).toContain('.from("app_entitlements")');
