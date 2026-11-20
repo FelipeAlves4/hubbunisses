@@ -579,7 +579,8 @@
   min-height: 88px;
   resize: none;
 }
-.proposal-links > a {
+.proposal-links > a,
+.proposal-links > .linked-proposal > a {
   min-height: 40px;
   margin-top: 12px;
   display: flex;

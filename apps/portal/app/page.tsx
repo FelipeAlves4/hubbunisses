@@ -1,5 +1,6 @@
 import {
   ArrowUpRight,
+  ClipboardList,
   Calculator,
   ChartNoAxesCombined,
   ContactRound,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { ApplicationKey } from "../lib/application-access";
 import { AuthControls } from "./auth-controls";
 import { isSupabaseConfigured } from "../lib/supabase/config";
 import { createClient } from "../lib/supabase/server";
@@ -41,13 +43,18 @@ const applications = [
     appKey: "clienta-plus",
     urlKey: "clientes",
   },
+  {
+    name: "OPERA+",
+    description: "Organize ordens de serviço, tarefas e entregas.",
+    icon: ClipboardList,
+    appKey: "opera-plus",
+    urlKey: "operacoes",
+  },
 ] as const;
-
-type AppKey = "precifica-plus" | "proposta-plus" | "nexo-finance" | "clienta-plus";
 type PortalIdentity = {
   organizationName?: string;
   initials?: string;
-  enabledApps: Set<AppKey>;
+  enabledApps: Set<ApplicationKey>;
 };
 
 async function getIdentity(): Promise<PortalIdentity> {
@@ -82,7 +89,7 @@ async function getIdentity(): Promise<PortalIdentity> {
           !entitlement.expires_at ||
           new Date(entitlement.expires_at).getTime() > Date.now(),
       )
-      .map((entitlement) => entitlement.app_key as AppKey),
+      .map((entitlement) => entitlement.app_key as ApplicationKey),
   );
   const organization = membership.organizations as { name?: string } | null;
   const name = profile?.full_name ?? "";

@@ -1,5 +1,5 @@
 import { createClient } from "../../lib/supabase/server";
-import { getApplicationAccess } from "../../lib/application-access";
+import { getApplicationAccess, getOptionalApplicationAccess } from "../../lib/application-access";
 import { isSupabaseConfigured } from "../../lib/supabase/config";
 import { CRMWorkspace, type Activity, type Client, type Opportunity, type ProposalLink } from "./workspace";
 
@@ -17,5 +17,19 @@ export default async function ClientesPage() {
   ]);
   const error = clients.error ?? opportunities.error ?? activities.error ?? proposalLinks.error;
   if (error) return <main className="clienta-error"><h1>CLIENTA+ aguardando configuração</h1><p>As migrations revisadas precisam estar aplicadas para carregar dados reais.</p><small>{error.message}</small></main>;
-  return <CRMWorkspace clients={(clients.data ?? []) as Client[]} opportunities={(opportunities.data ?? []) as unknown as Opportunity[]} activities={(activities.data ?? []) as Activity[]} proposalLinks={(proposalLinks.data ?? []) as unknown as ProposalLink[]} />;
+  const links = (proposalLinks.data ?? []) as unknown as ProposalLink[];
+  const opera = links.length ? await getOptionalApplicationAccess("opera-plus") : null;
+  if (opera?.organizationId === organizationId) {
+    const proposalIds = links.flatMap((link) => link.proposals ? [link.proposals.id] : []);
+    const ordersByProposal = new Map<string, { id: string; number: number }>();
+    for (let index = 0; index < proposalIds.length; index += 50) {
+      const { data } = await supabase.from("service_orders").select("id, number, proposal_id")
+        .eq("organization_id", organizationId).in("proposal_id", proposalIds.slice(index, index + 50));
+      for (const order of data ?? []) ordersByProposal.set(order.proposal_id, order);
+    }
+    for (const link of links) {
+      if (link.proposals) link.serviceOrder = ordersByProposal.get(link.proposals.id);
+    }
+  }
+  return <CRMWorkspace clients={(clients.data ?? []) as Client[]} opportunities={(opportunities.data ?? []) as unknown as Opportunity[]} activities={(activities.data ?? []) as Activity[]} proposalLinks={links} />;
 }

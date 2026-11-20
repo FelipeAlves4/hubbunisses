@@ -25,6 +25,7 @@ import {
   saveOpportunityAction,
 } from "./actions";
 import { formatDocumentNumber, normalizeDocumentNumber } from "./client-input";
+import { orderNumber } from "../operacoes/model";
 import { getCRMIndicators } from "./crm";
 
 export type Client = {
@@ -65,6 +66,7 @@ export type Activity = {
 };
 export type ProposalLink = {
   opportunity_id: string;
+  serviceOrder?: { id: string; number: number };
   proposals: {
     id: string;
     number: number;
@@ -862,14 +864,19 @@ function Detail({
             {links.length ? (
               links.map((link) =>
                 link.proposals ? (
-                  <a
-                    key={link.proposals.id}
-                    href={`/proposta?proposal_id=${link.proposals.id}`}
-                  >
-                    PR-{String(link.proposals.number).padStart(4, "0")} ·{" "}
-                    {link.proposals.title}
-                    <ChevronRight size={16} />
-                  </a>
+                  <div className="linked-proposal" key={link.proposals.id}>
+                    <Link href={`/proposta?proposal_id=${link.proposals.id}`}>
+                      PR-{String(link.proposals.number).padStart(4, "0")} ·{" "}
+                      {link.proposals.title}
+                      <ChevronRight size={16} />
+                    </Link>
+                    {link.serviceOrder && (
+                      <Link href={`/operacoes?ordem=${link.serviceOrder.id}`}>
+                        Consultar {orderNumber(link.serviceOrder.number)}
+                        <ChevronRight size={16} />
+                      </Link>
+                    )}
+                  </div>
                 ) : null,
               )
             ) : (
