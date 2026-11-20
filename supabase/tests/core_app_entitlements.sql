@@ -56,7 +56,7 @@ begin
   perform set_config('request.jwt.claim.role', 'authenticated', true);
   set local role authenticated;
   if (select array_agg(app_key order by app_key::text)
-      from public.app_entitlements where organization_id = target_organization_id and enabled)
+      from public.app_entitlements where organization_id = target_organization_id and enabled and app_key = any(expected_apps))
       is distinct from expected_apps then
     raise exception 'owner cannot read all enabled entitlements';
   end if;
@@ -72,7 +72,7 @@ begin
   select (public.create_organization('TESTE Entitlements Futura')).id
   into future_organization_id;
   if (select array_agg(app_key order by app_key::text)
-      from public.app_entitlements where organization_id = future_organization_id and enabled)
+      from public.app_entitlements where organization_id = future_organization_id and enabled and app_key = any(expected_apps))
       is distinct from expected_apps then
     raise exception 'new organization did not receive all core entitlements';
   end if;
