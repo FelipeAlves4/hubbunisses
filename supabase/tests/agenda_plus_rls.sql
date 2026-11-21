@@ -42,6 +42,14 @@ insert into public.agenda_time_off (organization_id,professional_id,starts_at,en
   ('a9100000-0000-4000-8000-000000000001','a9400000-0000-4000-8000-000000000001',
    (timezone('UTC',now())::date+1+time '10:00') at time zone 'UTC',(timezone('UTC',now())::date+1+time '10:30') at time zone 'UTC');
 
+-- Transaction-local fixture key and proofs for the new public contract.
+insert into agenda_private.origin_secret(secret) values(repeat('1',64));
+select set_config('agenda.fixture_epoch',floor(extract(epoch from clock_timestamp()))::bigint::text,true);
+select set_config('agenda.fixture_'||action||'_'||origin,
+  encode(agenda_private.origin_mac('agenda-v1|'||action||'|agenda-fixture-book|'||repeat(origin,64)||'|'||
+    current_setting('agenda.fixture_epoch'),repeat('1',64)),'hex'),true)
+from (values ('catalog','a'),('slots','a'),('book','a'),('book','b'),('book','c'),('book','d'),('book','e')) x(action,origin);
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a9000000-0000-4000-8000-000000000002',true);
 do $$
@@ -160,22 +168,98 @@ begin
     exception when insufficient_privilege then null; end;
   begin perform public.agenda_book_internal(null,null,null,null,null,null); raise exception 'private RPC publicly executable';
     exception when insufficient_privilege then null; end;
-  catalog := public.agenda_public_catalog('agenda-fixture-book');
+  catalog := public.agenda_public_catalog('agenda-fixture-book',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_catalog_a'));
   if catalog is null or catalog#>>'{services,0,price}' is not null
     or jsonb_array_length(catalog->'professionals') <> 1 then raise exception 'unexpected public catalog'; end if;
-  if public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Test','bad-contact','email')->>'error'
+  if public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Test','bad-contact','email',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_a'))->>'error'
     <> 'invalid_contact' then raise exception 'public input validation failed'; end if;
-  booked := public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Guest','test@example.test','email');
+  booked := public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Guest','test@example.test','email',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_a'));
   if booked->>'status' <> 'pending' or booked->>'reference' is null or booked ? 'contact' then
     raise exception 'invalid public reservation response';
   end if;
-  if public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Guest','test@example.test','email')->>'error'
+  if public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Guest','test@example.test','email',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_a'))->>'error'
     <> 'unavailable' then raise exception 'public double booking'; end if;
-  for i in 1..9 loop
-    perform public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Test','bad-contact','email');
+  if public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Guest','test@example.test','email',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_a'))->>'error'
+    <> 'rate_limit' then raise exception 'origin cap failed'; end if;
+  if public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Guest','test@example.test','email',
+    repeat('b',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_a'))->>'error' <> 'unavailable' then
+    raise exception 'tampered origin bypassed signature';
+  end if;
+  if public.agenda_public_catalog('agenda-fixture-book',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_slots_a'))->>'error'
+    <> 'unavailable' then raise exception 'proof replayed across actions'; end if;
+  if to_regprocedure('public.agenda_public_book(text,uuid,uuid,timestamptz,text,text,text)') is not null then
+    raise exception 'unsigned RPC remains';
+  end if;
+
+end;
+$$;
+
+reset role;
+do $$
+declare expired_id uuid; old_start timestamptz := (timezone('UTC',now())::date+1+time '14:00') at time zone 'UTC';
+begin
+  insert into public.agenda_appointments(organization_id,service_id,professional_id,starts_at,ends_at,status,origin)
+    values ('a9100000-0000-4000-8000-000000000001','a9300000-0000-4000-8000-000000000001',
+      'a9400000-0000-4000-8000-000000000001',old_start,old_start+interval '30 minutes','pending','public')
+    returning id into expired_id;
+  if (select expires_at from public.agenda_appointments where id=expired_id) not between
+    now()+interval '14 minutes' and clock_timestamp()+interval '15 minutes' then
+    raise exception 'automatic hold deadline missing';
+  end if;
+  update public.agenda_appointments set expires_at=clock_timestamp()-interval '1 second' where id=expired_id;
+  perform set_config('agenda.expired_id',expired_id::text,true);
+end;
+$$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a9000000-0000-4000-8000-000000000001',true);
+do $$
+begin
+  begin
+    perform public.agenda_change('a9100000-0000-4000-8000-000000000001',current_setting('agenda.expired_id')::uuid,'confirmed');
+    raise exception 'expired hold confirmed';
+  exception when object_not_in_prerequisite_state then null;
+  end;
+end;
+$$;
+set local role anon;
+do $$
+declare
+  slot timestamptz := (timezone('UTC',now())::date+1+time '14:00') at time zone 'UTC';
+  service constant uuid := 'a9300000-0000-4000-8000-000000000001';
+  staff constant uuid := 'a9400000-0000-4000-8000-000000000001';
+  receipt jsonb;
+  origin text;
+begin
+  if not exists(select 1 from jsonb_array_elements(public.agenda_public_slots('agenda-fixture-book',service,staff,
+    timezone('UTC',now())::date+1,repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_slots_a'))) t where (t->>'starts_at')::timestamptz=slot) then
+    raise exception 'expired hold remained unavailable';
+  end if;
+  receipt := public.agenda_public_book('agenda-fixture-book',service,staff,slot,'Replacement','replacement@example.test','email',repeat('b',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_b'));
+  if receipt->>'reference' is null or receipt->>'expires_at' is null then raise exception 'replacement booking failed'; end if;
+  for i in 1..2 loop
+    if public.agenda_public_book('agenda-fixture-book',service,staff,slot,'Test','bad-contact','email',repeat('b',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_b'))->>'error'
+      <> 'invalid_contact' then raise exception 'rejected origins starved collective quota'; end if;
   end loop;
-  if public.agenda_public_book('agenda-fixture-book',service,staff,start_at,'Guest','test@example.test','email')->>'error'
-    <> 'rate_limit' then raise exception 'direct RPC bypassed the distributed rate limit'; end if;
+  foreach origin in array array['c','d'] loop
+    for i in 1..3 loop
+      if public.agenda_public_book('agenda-fixture-book',service,staff,slot,'Test','bad-contact','email',
+        repeat(origin,64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_'||origin))->>'error'
+        <> 'invalid_contact' then raise exception 'collective quota blocked too early'; end if;
+    end loop;
+  end loop;
+  if public.agenda_public_book('agenda-fixture-book',service,staff,slot,'Test','bad-contact','email',repeat('e',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_book_e'))->>'error'
+    <> 'rate_limit' then raise exception 'collective quota can be bypassed with a new origin'; end if;
+end;
+$$;
+reset role;
+do $$
+begin
+  if not exists(select 1 from public.agenda_appointments where id=current_setting('agenda.expired_id')::uuid and status='expired')
+    or not exists(select 1 from public.agenda_appointment_events where appointment_id=current_setting('agenda.expired_id')::uuid and kind='expired' and actor_id is null) then
+    raise exception 'expiration or its audit event was not persisted';
+  end if;
+  -- Keep subsequent legacy fixture assertions scoped to the earlier public booking.
+  update public.agenda_appointments set status='cancelled' where guest_name='Replacement';
 end;
 $$;
 
@@ -282,7 +366,7 @@ set local role authenticated;
 do $$
 begin
   if public.agenda_can_access('a9100000-0000-4000-8000-000000000001')
-    or public.agenda_public_catalog('agenda-fixture-book') is not null then
+    or public.agenda_public_catalog('agenda-fixture-book',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_catalog_a')) is not null then
     raise exception 'expired entitlement retained private or public access';
   end if;
 end;
@@ -293,7 +377,7 @@ delete from public.app_entitlements where organization_id='a9100000-0000-4000-80
 set local role authenticated;
 do $$
 begin
-  if exists (select 1 from public.agenda_appointments) or public.agenda_public_catalog('agenda-fixture-book') is not null then
+  if exists (select 1 from public.agenda_appointments) or public.agenda_public_catalog('agenda-fixture-book',repeat('a',64),current_setting('agenda.fixture_epoch')::bigint,current_setting('agenda.fixture_catalog_a')) is not null then
     raise exception 'revocation not effective';
   end if;
   perform set_config('request.jwt.claim.sub','a9000000-0000-4000-8000-000000000003',true);

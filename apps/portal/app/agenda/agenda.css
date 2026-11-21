@@ -263,3 +263,20 @@
 @media (prefers-reduced-motion: reduce) {
   .agenda-shell *, .agenda-shell *::before, .agenda-shell *::after { animation: none !important; transition: none !important; }
 }
+
+.agenda-calendar.agenda-semana[data-empty] .agenda-day { min-height: 8rem; }
+.agenda-shell .agenda-event[data-status="expired"] { --event-bg: #f3efeb; --event-ink: #64564e; --event-line: #a89485; }
+.agenda-mobile-summary { display: none; }
+@media (max-width: 48rem) {
+  .agenda-calendar.agenda-semana[data-empty] .agenda-day { min-height: 3.5rem; }
+  .agenda-booking-summary { display: none; }
+  .agenda-mobile-summary {
+    display: grid;
+    gap: .22rem;
+    padding: .55rem .7rem;
+    border-radius: .55rem;
+    background: var(--agenda-sage);
+    color: var(--agenda-accent-dark);
+    font-size: .82rem;
+  }
+}

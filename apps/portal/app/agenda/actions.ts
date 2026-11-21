@@ -12,6 +12,7 @@ async function context() {
 
 function message(error: { code?: string }) {
   switch (error.code) {
+    case "55000": return "A solicitação expirou. Crie um novo agendamento se o horário ainda estiver livre.";
     case "23P01": return "Este horário não está mais disponível. Escolha outro.";
     case "23505": return "Já existe um registro com esses dados.";
     case "23503": return "Selecione registros que pertençam à organização.";

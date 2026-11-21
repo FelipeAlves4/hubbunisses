@@ -1,4 +1,5 @@
 // Run against a disposable PostgreSQL database called agenda_test after migrations.
+import { createHmac } from "node:crypto";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
@@ -19,14 +20,17 @@ let second;
 try {
   await monitor.query(fixture.slice(0, beforeRoles) + "\ncommit;");
   const slot = (await monitor.query("select (timezone('UTC',now())::date+1+time '09:00') at time zone 'UTC' as start")).rows[0].start;
-  const book = (conn, name) => conn.query(
-    "select public.agenda_public_book('agenda-fixture-book',$1,$2,$3,$4,'agenda-concurrency@example.test','email') as receipt",
-    [service, professional, slot, name],
-  );
+  const book = (conn, name, origin) => {
+    const key = origin.repeat(64);
+    const epoch = Math.floor(Date.now() / 1000);
+    const proof = createHmac("sha256", "1".repeat(64)).update(`agenda-v1|book|agenda-fixture-book|${key}|${epoch}`).digest("hex");
+    return conn.query("select public.agenda_public_book('agenda-fixture-book',$1,$2,$3,$4,'agenda-concurrency@example.test','email',$5,$6,$7) as receipt",
+      [service, professional, slot, name, key, epoch, proof]);
+  };
   await Promise.all([a.query("begin; set local role anon;"), b.query("begin; set local role anon;")]);
-  const first = (await book(a, "Primeiro cliente")).rows[0].receipt;
+  const first = (await book(a, "Primeiro cliente", "a")).rows[0].receipt;
   assert(first.reference);
-  second = book(b, "Segundo cliente");
+  second = book(b, "Segundo cliente", "b");
   // Observe a real blockade while the first reservation is uncommitted.
   let blocked = false;
   for (let attempt = 0; attempt < 100; attempt++) {

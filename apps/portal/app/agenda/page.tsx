@@ -3,7 +3,7 @@ import Form from "next/form";
 import { ArrowLeft, ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { requireApplicationAccess } from "../../lib/application-access";
 import { createClient } from "../../lib/supabase/server";
-import { addDays, calendarPeriod, displayDay, isDay, labels, localDay, localTime, transitions, uuid,
+import { addDays, calendarPeriod, displayDay, effectiveStatus, isDay, labels, localDay, localTime, transitions, uuid,
   type Appointment, type Assignment, type Client, type Professional, type Service, type Settings, type Status, type View } from "../../lib/agenda/model";
 import { AgendaForm, ClientSelect, InternalBooking } from "./forms";
 import { AvailabilityPanel, ProfessionalsPanel, ServicesPanel, SettingsPanel } from "./configuration";
@@ -16,7 +16,7 @@ const tabs = {
 } as const;
 const viewLabels = { dia: "Dia", semana: "Semana", mes: "Mês" } as const;
 const actionLabels: Record<Status, string> = {
-  pending: "Marcar pendente", confirmed: "Confirmar", in_service: "Iniciar atendimento",
+  expired: "Expirado", pending: "Marcar pendente", confirmed: "Confirmar", in_service: "Iniciar atendimento",
   completed: "Concluir", cancelled: "Cancelar", no_show: "Registrar ausência",
 };
 const events: Record<string, string> = { created: "Reserva criada", rescheduled: "Reagendamento", client_link_changed: "Vínculo de cliente alterado", ...labels };
@@ -33,6 +33,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   if (!access) return <main className="agenda-shell"><h1>Agenda+</h1><p>Configure o Supabase para acessar a agenda.</p><Link href="/">Voltar ao Hub</Link></main>;
   const db = await createClient();
   const org = access.organizationId;
+  const clock = Date.now();
+  const now = new Date(clock).toISOString();
+  const withEffectiveStatus = (item: Appointment) => ({ ...item, status: effectiveStatus(item, clock) });
   const user = access.userId;
   const manage = access.role === "owner" || access.role === "admin";
   const params = await searchParams;
@@ -78,7 +81,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       db.rpc("agenda_calendar_bounds", { org, start_day: period.start, end_day: period.end }).single(),
       db.from("proposal_clients").select("id,name").eq("organization_id", org).order("name").order("id").limit(1000),
       tab === "visao" ? db.from("agenda_appointments").select("*").eq("organization_id", org).in("status", ["pending", "confirmed"])
-        .gte("starts_at", new Date().toISOString()).order("starts_at").limit(5) : Promise.resolve({ data: [], error: null }),
+        .gte("starts_at", now).or(`status.eq.confirmed,expires_at.gt.${now}`).order("starts_at").limit(5) : Promise.resolve({ data: [], error: null }),
       tab === "visao" ? db.rpc("agenda_capacity", { org, day: selected }).single() : Promise.resolve({ data: null, error: null }),
       tab === "visao" ? db.rpc("agenda_calendar_bounds", { org, start_day: selected, end_day: addDays(selected, 1) }).single() : Promise.resolve({ data: null, error: null }),
       clientId ? db.from("proposal_clients").select("id,name").eq("organization_id", org).eq("id", clientId).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -96,7 +99,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       if (range) batch = batch.gte("starts_at", range.range_start).lt("starts_at", range.range_end);
       if (clientId) batch = batch.eq("client_id", clientId);
       const items = data(await batch.order("starts_at").order("id").range(offset, offset + 499)) ?? [];
-      appointments.push(...items as Appointment[]);
+      appointments.push(...(items as Appointment[]).map(withEffectiveStatus));
       if (items.length < 500) break;
     }
     const metricStatuses = ["pending", "confirmed", "completed", "cancelled"] as const;
@@ -104,6 +107,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       let countQuery = db.from("agenda_appointments").select("id", { count: "exact", head: true })
         .eq("organization_id", org).gte("starts_at", dayRange.range_start).lt("starts_at", dayRange.range_end);
       if (status) countQuery = countQuery.eq("status", status);
+      if (status === "pending") countQuery = countQuery.gt("expires_at", now);
       const result = await countQuery;
       if (result.error) throw new Error("Não foi possível contar os agendamentos.");
       return result.count ?? 0;
@@ -113,7 +117,8 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     const clientName = (item: Appointment) => clients.find((c) => c.id === item.client_id)?.name ?? item.guest_name ?? "Cliente";
     const bookingProps = { services, professionals, assignments, clients, today, timezone };
     const itemId = uuid(param("id")) ? param("id") : "";
-    const selectedItem = itemId ? data(await db.from("agenda_appointments").select("*").eq("organization_id", org).eq("id", itemId).maybeSingle()) as Appointment | null : null;
+    const selectedRow = itemId ? data(await db.from("agenda_appointments").select("*").eq("organization_id", org).eq("id", itemId).maybeSingle()) as Appointment | null : null;
+    const selectedItem = selectedRow ? withEffectiveStatus(selectedRow) : null;
     const appointmentCard = (item: Appointment, compact = false) => <Link className="agenda-event" data-status={item.status} href={detailLink(item.id)} key={item.id}>
       <time dateTime={item.starts_at}>{localTime(item.starts_at, timezone)}{!compact && "–" + localTime(item.ends_at, timezone)}</time>
       <strong>{serviceName(item.service_id)}</strong><span>{professionalName(item.professional_id)}{!compact && " · " + clientName(item)}</span>
@@ -140,6 +145,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
       {selectedItem && <section className="agenda-paper agenda-detail">
         <div className="agenda-inline"><h2>{serviceName(selectedItem.service_id)}</h2><span className="agenda-pill">{labels[selectedItem.status]}</span></div>
         <p>{clientName(selectedItem)} · {professionalName(selectedItem.professional_id)} · {displayDay(localDay(selectedItem.starts_at, timezone), { day: "numeric", month: "long" })} às {localTime(selectedItem.starts_at, timezone, true)}</p>
+        {selectedItem.status === "pending" && selectedItem.expires_at && <p>Confirmar até {localTime(selectedItem.expires_at, timezone, true)}.</p>}
         {selectedItem.guest_contact && <p>Contato da reserva: {selectedItem.guest_contact}</p>}
         {selectedItem.notes && <p>Observação: {selectedItem.notes}</p>}
         {(manage || selectedItem.created_by === user) && <>
@@ -179,7 +185,7 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         </div>) : <p>Nenhum agendamento neste período.</p>}</div>
       </section>}
       {tab !== "agendamentos" && <div className={tab === "visao" ? "agenda-workspace" : ""}>
-        <section className={"agenda-calendar agenda-" + view} aria-label="Calendário de agendamentos">
+        <section className={"agenda-calendar agenda-" + view} data-empty={appointments.length === 0 || undefined} aria-label="Calendário de agendamentos">
           {period.days.map((day) => {
             const items = appointments.filter((item) => localDay(item.starts_at, timezone) === day);
             const limit = view === "mes" ? 2 : items.length;

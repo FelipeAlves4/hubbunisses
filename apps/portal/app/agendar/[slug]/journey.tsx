@@ -20,7 +20,7 @@ export function BookingJourney({ catalog, today, slug }: { catalog: Catalog; tod
   const [contact, setContact] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [result, setResult] = useState<{ reference: string; status: string } | null>(null);
+  const [result, setResult] = useState<{ reference: string; status: string; expiresAt?: string | null } | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const service = catalog.services.find((item) => item.id === serviceId);
   const professional = catalog.professionals.find((item) => item.id === professionalId);
@@ -56,7 +56,7 @@ export function BookingJourney({ catalog, today, slug }: { catalog: Catalog; tod
     setError("");
     try {
       const response = await publicBook(slug, serviceId, professionalId, slot, guest.trim(), contact.trim(), channel);
-      if (response.reference) setResult({ reference: response.reference, status: response.status ?? "pending" });
+      if (response.reference) setResult({ reference: response.reference, status: response.status ?? "pending", expiresAt: response.expires_at });
       else setError(response.error ?? "Não foi possível confirmar.");
     } catch { setError("Falha na conexão. Confira novamente antes de enviar."); }
     finally { setPending(false); }
@@ -69,7 +69,7 @@ export function BookingJourney({ catalog, today, slug }: { catalog: Catalog; tod
     <CircleCheck size={42} aria-hidden="true" />
     <h2 tabIndex={-1} ref={heading}>{result.status === "confirmed" ? "Reserva confirmada" : "Solicitação recebida"}</h2>
     <p>{service?.name} com {professional?.name}, em {displayDay(day, { day: "numeric", month: "long" })} às {localTime(slot, catalog.timezone, true)}.</p>
-    {result.status !== "confirmed" && <p>A empresa ainda precisa confirmar o atendimento.</p>}
+    {result.status !== "confirmed" && <p>A empresa ainda precisa confirmar o atendimento{result.expiresAt ? " até " + localTime(result.expiresAt, catalog.timezone, true) : ""}.</p>}
     <p>Referência da reserva <code>{result.reference}</code></p>
   </section>;
 
@@ -79,6 +79,10 @@ export function BookingJourney({ catalog, today, slug }: { catalog: Catalog; tod
         aria-current={stage === index ? "step" : undefined} data-complete={index < stage || undefined}>
         <span>{index < stage ? <Check size={13} aria-hidden="true" /> : index + 1}</span><span>{label}</span>
       </li>)}</ol>
+      {service && stage > 0 && <div className="agenda-mobile-summary" aria-label="Resumo da reserva">
+        <strong>{service.name}</strong>
+        {slot && <span>{displayDay(day, { day: "numeric", month: "short" })} · {localTime(slot, catalog.timezone, true)}</span>}
+      </div>}
       <div className="agenda-journey-stage" key={stage}>
         <h2 tabIndex={-1} ref={heading}>{headings[stage]}</h2>
         {stage === 0 && <div className="agenda-options">

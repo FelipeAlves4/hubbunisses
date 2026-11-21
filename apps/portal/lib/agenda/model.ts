@@ -1,5 +1,6 @@
 export const labels = {
   pending: "Pendente",
+  expired: "Expirado",
   confirmed: "Confirmado",
   in_service: "Em atendimento",
   completed: "Concluído",
@@ -10,6 +11,7 @@ export const labels = {
 export type Status = keyof typeof labels;
 export const transitions: Record<Status, Status[]> = {
   pending: ["confirmed", "cancelled"],
+  expired: [],
   confirmed: ["in_service", "cancelled", "no_show"],
   in_service: ["completed"],
   completed: [],
@@ -24,7 +26,7 @@ export type Assignment = { professional_id: string; service_id: string };
 export type Client = { id: string; name: string };
 export type Appointment = Slot & {
   id: string; client_id: string | null; service_id: string; professional_id: string;
-  status: Status; origin: "internal" | "public"; created_by: string | null;
+  status: Status; expires_at: string | null; origin: "internal" | "public"; created_by: string | null;
   guest_name: string | null; guest_contact: string | null; notes: string | null;
 };
 
@@ -95,4 +97,8 @@ export function unambiguousInstant(value: string, timezone: string) {
   const matches = [...offsets].map((offset) => new Date(utc - offset))
     .filter((date) => Number.isFinite(date.getTime()) && formatter.format(date).replace(" ", "T") === value);
   return matches.length === 1 ? matches[0].toISOString() : null;
+}
+
+export function effectiveStatus(item: Pick<Appointment, "status" | "expires_at">, now: number): Status {
+  return item.status === "pending" && item.expires_at && Date.parse(item.expires_at) <= now ? "expired" : item.status;
 }
