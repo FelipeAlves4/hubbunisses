@@ -7,8 +7,9 @@ export type ApplicationKey =
   | "proposta-plus"
   | "nexo-finance"
   | "clienta-plus"
-  | "opera-plus";
-export type ApplicationPath = "/precifica" | "/proposta" | "/financeiro" | "/clientes" | "/operacoes";
+  | "opera-plus"
+  | "agenda-plus";
+export type ApplicationPath = "/precifica" | "/proposta" | "/financeiro" | "/clientes" | "/operacoes" | "/agenda";
 
 export class ApplicationAccessError extends Error {}
 

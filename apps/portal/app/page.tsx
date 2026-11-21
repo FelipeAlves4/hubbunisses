@@ -1,6 +1,7 @@
 import {
   ArrowUpRight,
   ClipboardList,
+  CalendarDays,
   Calculator,
   ChartNoAxesCombined,
   ContactRound,
@@ -49,6 +50,13 @@ const applications = [
     icon: ClipboardList,
     appKey: "opera-plus",
     urlKey: "operacoes",
+  },
+  {
+    name: "AGENDA+",
+    description: "Gerencie horários, atendimentos e reservas online.",
+    icon: CalendarDays,
+    appKey: "agenda-plus",
+    urlKey: "agenda",
   },
 ] as const;
 type PortalIdentity = {
